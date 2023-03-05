@@ -12,21 +12,49 @@ uint32_t* getSetTemperature() {
 	}
 }
 
+const char* dayNames[] = {
+	"Mon",
+	"Tue",
+	"Wed",
+	"Thu",
+	"Fri",
+	"Sat",
+	"Sun"
+};
+
+void printTime(uint32_t hours, uint32_t minutes, bool colon = true) {
+	if(hours < 10) {
+		lcd.print(' ');
+	}
+	if(hours > 23) {
+		lcd.print("--");
+	}
+	else {
+		lcd.print(hours);
+	}
+	lcd.print(colon ? ':' : ' ');
+	if(minutes < 10) {
+		lcd.print('0');
+	}
+	if(minutes > 59) {
+		lcd.print("--");
+	}
+	else {
+		lcd.print(minutes);
+	}
+}
 
 void HomeScreen::render() {
 	lcd.setCursor(0, 0);
-	lcd.print("18:54     ");
+	lcd.print(dayNames[rtc.getWeekDay() - 1]);
+	lcd.print(" ");
+	printTime(rtc.getHours(), rtc.getMinutes(), ((millis() / 1000) % 2));
+	lcd.print(" ");
 	lcd.setCursor(10, 0);
-	uint32_t* temp = getSetTemperature();
-	if(temp) {
-		if(*temp < 100) {
-			lcd.print(" ");
-		}
-		lcd.print(*temp / 10.0, 1);
+	if(currentTemperature < 100) {
+		lcd.print(" ");
 	}
-	else {
-		lcd.print("--.-");
-	}
+	lcd.print(currentTemperature / 10.0, 1);
 	lcd.print((char)223); //degree
 	lcd.print("C ");
 	lcd.setCursor(0, 1);
@@ -40,10 +68,16 @@ void HomeScreen::render() {
 		lcd.print("T-19:00   ");
 	}
 	lcd.setCursor(10, 1);
-	if(currentTemperature < 100) {
-		lcd.print(" ");
+	uint32_t* temp = getSetTemperature();
+	if(temp) {
+		if(*temp < 100) {
+			lcd.print(" ");
+		}
+		lcd.print(*temp / 10.0, 1);
 	}
-	lcd.print(currentTemperature / 10.0, 1);
+	else {
+		lcd.print("--.-");
+	}
 	lcd.print((char)223); //degree
 	lcd.print("C ");
 }
@@ -133,6 +167,11 @@ void SetupScreen::onDecrease() {
 void SetupScreen::onModePress() {
 	switch(cursorPos) {
 		case SET_TEMPERATURE:
+			{
+				Screen* tempSet = new TemperatureSetScreen();
+				tempSet->prevScreen = this;
+				tempSet->setCurrentScreen();
+			}
 			break;
 		case SET_SYSTEM_TIME:
 			{
@@ -178,39 +217,31 @@ void SetupScreen::onModeHold() {
 }
 
 enum TimeCursorPos {
-	TIME_24H_FORMAT,
+	TIME_DAY,
 	TIME_HOURS,
-	TIME_MINUTES,
-	TIME_AM_PM
+	TIME_MINUTES
 };
 
 void SystemTimeScreen::render() {
 	lcd.setCursor(0, 0);
 	lcd.print("Set system time:");
 	lcd.setCursor(0, 1);
-	lcd.print(format24h ? "24h  " : "12h  ");
+	//lcd.print(format24h ? "24h  " : "12h  ");
+	lcd.print(dayNames[day]);
 
 	lcd.setCursor(5, 1);
-	if(hours < 10) {
-		lcd.print(' ');
-	}
-	lcd.print(hours);
-	lcd.print(":");
-	if(minutes < 10) {
-		lcd.print('0');
-	}
-	lcd.print(minutes);
-	if(!format24h) {
-		lcd.print(" AM    ");
-	}
-	else {
-		lcd.print("       ");
-	}
+	printTime(hours, minutes);
+	// if(!format24h) {
+	// 	lcd.print(" AM    ");
+	// }
+	// else {
+	 	lcd.print("       ");
+	// }
 	
 	lcd.cursor();
 	switch(cursorPos) {
-		case TIME_24H_FORMAT:
-			lcd.setCursor(1, 1);
+		case TIME_DAY:
+			lcd.setCursor(2, 1);
 			break;
 		case TIME_HOURS:
 			lcd.setCursor(6, 1);
@@ -218,17 +249,20 @@ void SystemTimeScreen::render() {
 		case TIME_MINUTES:
 			lcd.setCursor(9, 1);
 			break;
-		case TIME_AM_PM:
-			lcd.setCursor(12, 1);
-			break;
 	}
 }
 
 void SystemTimeScreen::onIncrease() {
 	switch(cursorPos) {
+		case TIME_DAY:
+			day++;
+			if(day > 6) {
+				day = 0;
+			}
+			break;
 		case TIME_HOURS:
 			hours++;
-			if(hours > 23 /*|| (format24h && hours > 12)*/) {
+			if(hours > 23) {
 				hours = 0;
 			}
 			break;
@@ -238,17 +272,20 @@ void SystemTimeScreen::onIncrease() {
 				minutes = 0;
 			}
 			break;
-		case TIME_24H_FORMAT:
-			format24h = !format24h;
-			break;
 	}
 	this->render();
 }
 void SystemTimeScreen::onDecrease() {
 	switch(cursorPos) {
+		case TIME_DAY:
+			day--;
+			if(day > 6) {
+				day = 6;
+			}
+			break;
 		case TIME_HOURS:
 			hours--;
-			if(hours > 23/*|| (format24h && hours > 12)*/) {
+			if(hours > 23) {
 				hours = 23;
 			}
 			break;
@@ -258,16 +295,16 @@ void SystemTimeScreen::onDecrease() {
 				minutes = 59;
 			}
 			break;
-		case TIME_24H_FORMAT:
-			format24h = !format24h;
-			break;
 	}
 	this->render();
 }
 void SystemTimeScreen::onModePress() {
 	cursorPos++;
-	if(cursorPos > TIME_AM_PM || (format24h && cursorPos > TIME_MINUTES)) {
+	if(cursorPos > TIME_MINUTES) {
 		//save time and exit
+		rtc.setHours(hours);
+		rtc.setMinutes(minutes);
+		rtc.setWeekDay(day + 1);
 		this->onModeHold();
 		return;
 	}
@@ -400,51 +437,14 @@ void SlotSelectScreen::onModeHold() {
 void TimeSelectScreen::render() {
 	lcd.setCursor(0, 0);
 	lcd.print("From: ");
-	if(startHours < 10) {
-		lcd.print(' ');
-	}
-	if(startHours > 23) {
-		lcd.print("--");
-	}
-	else {
-		lcd.print(startHours);
-	}
-	lcd.print(":");
-	if(startMinutes < 10) {
-		lcd.print('0');
-	}
-	if(startMinutes > 59) {
-		lcd.print("--");
-	}
-	else {
-		lcd.print(startMinutes);
-	}
+	printTime(startHours, startMinutes);
 	lcd.print("     ");
-
 	
 	lcd.setCursor(0, 1);
 	lcd.print("To:   ");
-	if(endHours < 10) {
-		lcd.print(' ');
-	}
-	if(endHours > 23) {
-		lcd.print("--");
-	}
-	else{
-		lcd.print(endHours);
-	}
-	lcd.print(":");
-	if(endMinutes < 10) {
-		lcd.print('0');
-	}
-	if(endMinutes > 59) {
-		lcd.print("--");
-	}
-	else {
-		lcd.print(endMinutes);
-	}
-
+	printTime(endHours, endMinutes);
 	lcd.print("     ");
+
 	lcd.cursor();
 	switch(cursorPos) {
 		case 0:
@@ -577,3 +577,168 @@ void FactoryResetScreen::onModeHold() {
 	prevScreen->setCurrentScreen();
 	delete this;
 }
+
+void TemperatureSetScreen::render() {
+	lcd.setCursor(0, 0);
+	lcd.print("Day:   ");
+	lcd.print(dayTemp / 10.0, 1);
+	lcd.print((char)223); //degree
+	lcd.print("C ");
+
+	lcd.setCursor(0, 1);
+	lcd.print("Night: ");
+	lcd.print(nightTemp / 10.0, 1);
+	lcd.print((char)223); //degree
+	lcd.print("C ");
+
+	lcd.setCursor(10, cursorPos);
+	lcd.cursor();
+}
+
+void TemperatureSetScreen::onIncrease() {
+	uint32_t* temp = cursorPos ? &nightTemp : &dayTemp;
+	if(!temp) return;
+	(*temp)++;
+	if(*temp > 350) {
+		*temp = 350;
+	}
+	this->render();
+}
+void TemperatureSetScreen::onDecrease() {
+	uint32_t* temp = cursorPos ? &nightTemp : &dayTemp;
+	if(!temp) return;
+	(*temp)--;
+	if(*temp < 50) {
+		*temp = 50;
+	}
+	this->render();
+}
+void TemperatureSetScreen::onModePress() {
+	if(cursorPos == 0) {
+		cursorPos++;
+		this->render();
+		return;
+	}
+	//save and exit
+	dayTemperature = dayTemp;
+	nightTemperature = nightTemp;
+	this->onModeHold();
+}
+
+void TemperatureSetScreen::onModeHold() {
+	lcd.noCursor();
+	prevScreen->setCurrentScreen();
+	delete this;
+}
+
+
+
+
+
+
+
+// old system time code
+//
+// enum TimeCursorPos {
+// 	TIME_24H_FORMAT,
+// 	TIME_HOURS,
+// 	TIME_MINUTES,
+// 	TIME_AM_PM
+// };
+// void SystemTimeScreen::render() {
+// 	lcd.setCursor(0, 0);
+// 	lcd.print("Set system time:");
+// 	lcd.setCursor(0, 1);
+// 	lcd.print(format24h ? "24h  " : "12h  ");
+
+// 	lcd.setCursor(5, 1);
+// 	if(hours < 10) {
+// 		lcd.print(' ');
+// 	}
+// 	lcd.print(hours);
+// 	lcd.print(":");
+// 	if(minutes < 10) {
+// 		lcd.print('0');
+// 	}
+// 	lcd.print(minutes);
+// 	if(!format24h) {
+// 		lcd.print(" AM    ");
+// 	}
+// 	else {
+// 		lcd.print("       ");
+// 	}
+
+// 	lcd.cursor();
+// 	switch(cursorPos) {
+// 		case TIME_24H_FORMAT:
+// 			lcd.setCursor(1, 1);
+// 			break;
+// 		case TIME_HOURS:
+// 			lcd.setCursor(6, 1);
+// 			break;
+// 		case TIME_MINUTES:
+// 			lcd.setCursor(9, 1);
+// 			break;
+// 		case TIME_AM_PM:
+// 			lcd.setCursor(12, 1);
+// 			break;
+// 	}
+// }
+
+// void SystemTimeScreen::onIncrease() {
+// 	switch(cursorPos) {
+// 		case TIME_HOURS:
+// 			hours++;
+// 			if(hours > 23 /*|| (format24h && hours > 12)*/) {
+// 				hours = 0;
+// 			}
+// 			break;
+// 		case TIME_MINUTES:
+// 			minutes++;
+// 			if(minutes > 59) {
+// 				minutes = 0;
+// 			}
+// 			break;
+// 		case TIME_24H_FORMAT:
+// 			format24h = !format24h;
+// 			break;
+// 	}
+// 	this->render();
+// }
+// void SystemTimeScreen::onDecrease() {
+// 	switch(cursorPos) {
+// 		case TIME_HOURS:
+// 			hours--;
+// 			if(hours > 23 /*|| (format24h && hours > 12)*/) {
+// 				hours = 23;
+// 			}
+// 			break;
+// 		case TIME_MINUTES:
+// 			minutes--;
+// 			if(minutes > 59) {
+// 				minutes = 59;
+// 			}
+// 			break;
+// 		case TIME_24H_FORMAT:
+// 			format24h = !format24h;
+// 			break;
+// 	}
+// 	this->render();
+// }
+// void SystemTimeScreen::onModePress() {
+// 	cursorPos++;
+// 	if(cursorPos > TIME_AM_PM || (format24h && cursorPos > TIME_MINUTES)) {
+// 		//save time and exit
+// 		rtc.setHours(hours);
+// 		rtc.setMinutes(minutes);
+// 		this->onModeHold();
+// 		return;
+// 	}
+// 	this->render();
+// }
+
+// void SystemTimeScreen::onModeHold() {
+// 	lcd.noCursor();
+// 	prevScreen->setCurrentScreen();
+// 	delete this;
+// }

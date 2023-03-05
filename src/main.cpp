@@ -5,6 +5,7 @@
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 HardwareSerial Serial3(PB11, PB10);
 //HardwareTimer tim1(TIM1);
+STM32RTC &rtc = STM32RTC::getInstance();
 
 uint32_t lastPrint = 0;
 
@@ -16,6 +17,8 @@ Modes mode = MODE_OFF;
 uint32_t dayTemperature = 210;
 uint32_t nightTemperature = 180;
 uint16_t currentTemperature = 90;
+
+//Day currentDay = DAY_MONDAY;
 
 
 Slot slots[7][8];//8 slots per day
@@ -45,7 +48,14 @@ void setup() {
     pinMode(LED_PIN, OUTPUT);
     pinMode(TEMP_SENSOR_PIN, INPUT_ANALOG);
 
-    analogReadResolution(12);
+	analogReadResolution(12);
+
+	rtc.setClockSource(STM32RTC::LSE_CLOCK);
+	rtc.begin();
+	if(!rtc.isConfigured()) {
+		rtc.setDate(1, 1, 10);
+		rtc.setTime(0, 0, 0);
+	}
 
 	Serial3.begin(115200);
 	lcd.init();

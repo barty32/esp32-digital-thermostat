@@ -65,8 +65,9 @@ class SystemTimeScreen : public Screen {
 
   public:
 	int cursorPos = 0;
-	uint32_t hours = 16;//getHours()
-	uint32_t minutes = 35;//getMinutes()
+	uint32_t hours = rtc.getHours();
+	uint32_t minutes = rtc.getMinutes();
+	Day day = rtc.getWeekDay() - 1;
 	bool format24h = true;
 
 	virtual void onIncrease();
@@ -169,6 +170,24 @@ class FactoryResetScreen : public Screen {
 
   public:
 	bool cursorPos = false;
+
+	virtual void onIncrease();
+	virtual void onDecrease();
+
+	virtual void onModePress();
+	virtual void onModeHold();
+
+	virtual void render();
+
+	//virtual void setCurrentScreen();
+};
+
+class TemperatureSetScreen : public Screen {
+
+  public:
+	int cursorPos = 0;
+	uint32_t dayTemp = dayTemperature;
+	uint32_t nightTemp = nightTemperature;
 
 	virtual void onIncrease();
 	virtual void onDecrease();

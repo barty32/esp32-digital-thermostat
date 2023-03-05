@@ -3,6 +3,7 @@
 //includes
 #include <Arduino.h>
 #include <LiquidCrystal_I2C.h>
+#include <STM32RTC.h>
 #include <deque>
 
 
@@ -58,6 +59,7 @@ uint32_t getTemperature();
 GLOBAL LiquidCrystal_I2C lcd;
 GLOBAL HardwareSerial Serial3;
 GLOBAL HardwareTimer tim1;
+GLOBAL STM32RTC &rtc;
 
 GLOBAL Screen* currentScreen;
 GLOBAL Modes mode;
@@ -67,6 +69,8 @@ GLOBAL Slot slots[7][8];
 GLOBAL uint32_t dayTemperature;
 GLOBAL uint32_t nightTemperature;
 GLOBAL uint16_t currentTemperature;
+
+//GLOBAL Day currentDay;
 
 GLOBAL uint32_t hysteresis;
 
