@@ -12,14 +12,18 @@ uint32_t lastPrint = 0;
 Screen* currentScreen = nullptr;
 Modes mode = MODE_OFF;
 
+//temperatures, times 10
 uint32_t dayTemperature = 210;
 uint32_t nightTemperature = 180;
 uint16_t currentTemperature = 90;
 
+
+Slot slots[7][8];//8 slots per day
+
 bool heaterOn = false;
 
-//for hysteresis
-int16_t hysteresis = 0;
+//for hysteresis, times 100
+uint32_t hysteresis = 0;
 
 byte customChar1[8] = {
 	0b10000,
@@ -48,6 +52,14 @@ void setup() {
 	lcd.backlight();
 
 	lcd.createChar(0, customChar1);
+
+	for(auto &day : slots) {
+		for(auto &slot : day) {
+			slot.startTime = -1;
+			slot.endTime = -1;
+			slot.temperature = 0;
+		}
+	}
 
 	currentScreen = new HomeScreen();
 	currentScreen->autoRender = true;

@@ -83,6 +83,7 @@ enum Options {
 	SET_HYSTERESIS,
 	SET_PREDICTION,
 	SET_DAY_TIMES,
+	SET_FACTORY_RESET,
 	SET_EXIT
 };
 
@@ -92,8 +93,8 @@ const char* optionNames[] = {
 	"Set hysteresis",
 	"Set prediction",
 	"Set day times",
-	"Exit"
-};
+	"Factory reset",
+	"Exit"};
 
 void SetupScreen::render() {
 	lcd.clear();
@@ -116,16 +117,16 @@ void SetupScreen::render() {
 }
 
 void SetupScreen::onIncrease() {
-	cursorPos++;
-	if(cursorPos > SET_EXIT) {
-		cursorPos = 0;
+	cursorPos--;
+	if(cursorPos < 0) {
+		cursorPos = SET_EXIT;
 	}
 	this->render();
 }
 void SetupScreen::onDecrease() {
-	cursorPos--;
-	if(cursorPos < 0) {
-		cursorPos = SET_EXIT;
+	cursorPos++;
+	if(cursorPos > SET_EXIT) {
+		cursorPos = 0;
 	}
 	this->render();
 }
@@ -135,16 +136,33 @@ void SetupScreen::onModePress() {
 			break;
 		case SET_SYSTEM_TIME:
 			{
-			Screen* time = new SystemTimeScreen();
-			time->prevScreen = this;
-			time->setCurrentScreen();
+				Screen* time = new SystemTimeScreen();
+				time->prevScreen = this;
+				time->setCurrentScreen();
 			}
 			break;
 		case SET_HYSTERESIS:
+			{
+				Screen* hystScr = new HysteresisScreen();
+				hystScr->prevScreen = this;
+				hystScr->setCurrentScreen();
+			}
 			break;
 		case SET_PREDICTION:
 			break;
 		case SET_DAY_TIMES:
+			{
+				Screen* daySelect = new DaySelectScreen();
+				daySelect->prevScreen = this;
+				daySelect->setCurrentScreen();
+			}
+			break;
+		case SET_FACTORY_RESET:
+			{
+				Screen* daySelect = new FactoryResetScreen();
+				daySelect->prevScreen = this;
+				daySelect->setCurrentScreen();
+			}
 			break;
 		case SET_EXIT:
 			this->onModeHold();
@@ -257,6 +275,304 @@ void SystemTimeScreen::onModePress() {
 }
 
 void SystemTimeScreen::onModeHold() {
+	lcd.noCursor();
+	prevScreen->setCurrentScreen();
+	delete this;
+}
+
+void HysteresisScreen::render() {
+	lcd.setCursor(0, 0);
+	lcd.print("Set hysteresis:");
+	lcd.setCursor(1, 1);
+	lcd.print(setHysteresis / 100.0, 2);
+	lcd.print((char)223); //degree
+	lcd.print("C ");
+
+	lcd.setCursor(4, 1);
+	lcd.cursor();
+}
+
+void HysteresisScreen::onIncrease() {
+	setHysteresis++;
+	if(setHysteresis > 500) {
+		setHysteresis = 500;
+	}
+	this->render();
+}
+void HysteresisScreen::onDecrease() {
+	setHysteresis--;
+	if(setHysteresis > 500) {
+		setHysteresis = 0;
+	}
+	this->render();
+}
+void HysteresisScreen::onModePress() {
+	//save and exit
+	hysteresis = setHysteresis;
+	this->onModeHold();
+}
+
+void HysteresisScreen::onModeHold() {
+	lcd.noCursor();
+	prevScreen->setCurrentScreen();
+	delete this;
+}
+
+
+void DaySelectScreen::render() {
+	lcd.setCursor(0, 0);
+	lcd.print("Select day:");
+	lcd.setCursor(0, 1);
+	lcd.print("M T W T F S S  A ");
+	lcd.setCursor(cursorPos == 7 ? 15 : cursorPos * 2, 1);
+	lcd.cursor();
+}
+
+void DaySelectScreen::onIncrease() {
+	cursorPos++;
+	if(cursorPos > 7) {
+		cursorPos = 0;
+	}
+	this->render();
+}
+
+void DaySelectScreen::onDecrease() {
+	cursorPos--;
+	if(cursorPos < 0) {
+		cursorPos = 7;
+	}
+	this->render();
+}
+void DaySelectScreen::onModePress() {
+	SlotSelectScreen* slotSelect = new SlotSelectScreen();
+	slotSelect->prevScreen = this;
+	slotSelect->day = cursorPos;
+	slotSelect->setCurrentScreen();
+}
+
+void DaySelectScreen::onModeHold() {
+	lcd.noCursor();
+	prevScreen->setCurrentScreen();
+	delete this;
+}
+
+
+
+void SlotSelectScreen::render() {
+	lcd.setCursor(0, 0);
+	lcd.print("Select slot:");
+	lcd.setCursor(0, 1);
+	lcd.print("1 2 3 4 5 6 7 8 ");
+	lcd.setCursor(cursorPos * 2, 1);
+	lcd.cursor();
+	//lcd.print('>');
+}
+
+void SlotSelectScreen::onIncrease() {
+	cursorPos++;
+	if(cursorPos > 7) {
+		cursorPos = 0;
+	}
+	this->render();
+}
+
+void SlotSelectScreen::onDecrease() {
+	cursorPos--;
+	if(cursorPos < 0) {
+		cursorPos = 7;
+	}
+	this->render();
+}
+void SlotSelectScreen::onModePress() {
+	TimeSelectScreen* timeSelect = new TimeSelectScreen(slots[day][cursorPos]);
+	timeSelect->prevScreen = this;
+	timeSelect->setCurrentScreen();
+}
+
+void SlotSelectScreen::onModeHold() {
+	lcd.noCursor();
+	prevScreen->setCurrentScreen();
+	delete this;
+}
+
+
+
+void TimeSelectScreen::render() {
+	lcd.setCursor(0, 0);
+	lcd.print("From: ");
+	if(startHours < 10) {
+		lcd.print(' ');
+	}
+	if(startHours > 23) {
+		lcd.print("--");
+	}
+	else {
+		lcd.print(startHours);
+	}
+	lcd.print(":");
+	if(startMinutes < 10) {
+		lcd.print('0');
+	}
+	if(startMinutes > 59) {
+		lcd.print("--");
+	}
+	else {
+		lcd.print(startMinutes);
+	}
+	lcd.print("     ");
+
+	
+	lcd.setCursor(0, 1);
+	lcd.print("To:   ");
+	if(endHours < 10) {
+		lcd.print(' ');
+	}
+	if(endHours > 23) {
+		lcd.print("--");
+	}
+	else{
+		lcd.print(endHours);
+	}
+	lcd.print(":");
+	if(endMinutes < 10) {
+		lcd.print('0');
+	}
+	if(endMinutes > 59) {
+		lcd.print("--");
+	}
+	else {
+		lcd.print(endMinutes);
+	}
+
+	lcd.print("     ");
+	lcd.cursor();
+	switch(cursorPos) {
+		case 0:
+			lcd.setCursor(7, 0);
+			break;
+		case 1:
+			lcd.setCursor(10, 0);
+			break;
+		case 2:
+			lcd.setCursor(7, 1);
+			break;
+		case 3:
+			lcd.setCursor(10, 1);
+			break;
+	}
+}
+
+void TimeSelectScreen::onIncrease() {
+	switch(cursorPos) {
+		case 0:
+			startHours++;
+			if(startHours > 23) {
+				startHours = 0;
+			}
+			break;
+		case 1:
+			startMinutes++;
+			if(startMinutes > 59) {
+				startMinutes = 0;
+			}
+			break;
+		case 2:
+			endHours++;
+			if(endHours > 23) {
+				endHours = 0;
+			}
+			break;
+		case 3:
+			endMinutes++;
+			if(endMinutes > 59) {
+				endMinutes = 0;
+			}
+			break;
+	}
+	this->render();
+}
+void TimeSelectScreen::onDecrease() {
+	switch(cursorPos) {
+		case 0:
+			startHours--;
+			if(startHours > 23) {
+				startHours = 23;
+			}
+			break;
+		case 1:
+			startMinutes--;
+			if(startMinutes > 59) {
+				startMinutes = 59;
+			}
+			break;
+		case 2:
+			endHours--;
+			if(endHours > 23) {
+				endHours = 23;
+			}
+			break;
+		case 3:
+			endMinutes--;
+			if(endMinutes > 59) {
+				endMinutes = 59;
+			}
+			break;
+	}
+	this->render();
+}
+
+// void TimeSelectScreen::onPlusMinus() {
+// 	startHours = startMinutes = endHours = endMinutes = -1;
+// 	this->render();
+// }
+
+void TimeSelectScreen::onModePress() {
+	cursorPos++;
+	if(cursorPos > 3) {
+		//save time and exit
+		slot.startTime = (startHours == -1 || startMinutes == -1) ? -1 : startHours * 3600 + startMinutes * 60;
+		slot.endTime = (endHours == -1 || endMinutes == -1) ? -1 : endHours * 3600 + endMinutes * 60;
+		//this->onModeHold();
+		lcd.noCursor();
+		prevScreen->setCurrentScreen();
+		delete this;
+		return;
+	}
+	this->render();
+}
+
+void TimeSelectScreen::onModeHold() {
+	startHours = startMinutes = endHours = endMinutes = -1;
+	this->render();
+}
+
+void FactoryResetScreen::render() {
+	lcd.setCursor(0, 0);
+	lcd.print("Are you sure?");
+	lcd.setCursor(0, 1);
+	lcd.print("   Yes   No   ");
+	lcd.setCursor(cursorPos ? 2 : 8, 1);
+	lcd.cursor();
+	lcd.print('>');
+}
+
+void FactoryResetScreen::onIncrease() {
+	cursorPos = !cursorPos;
+	this->render();
+}
+
+void FactoryResetScreen::onDecrease() {
+	this->onIncrease();
+}
+
+void FactoryResetScreen::onModePress() {
+	if(cursorPos){
+		//reset everything
+	}
+	this->onModeHold();
+}
+
+void FactoryResetScreen::onModeHold() {
 	lcd.noCursor();
 	prevScreen->setCurrentScreen();
 	delete this;

@@ -5,8 +5,6 @@
 #include <LiquidCrystal_I2C.h>
 #include <deque>
 
-#include "screens.h"
-
 
 //defines
 #define HOLD_TIME 500
@@ -22,8 +20,8 @@
 
 #define GLOBAL extern
 
-
-
+typedef uint32_t Time;
+typedef uint8_t Day;
 
 //enums
 enum Modes {
@@ -32,6 +30,25 @@ enum Modes {
 	MODE_NIGHT,
 	MODE_TIMES
 };
+
+enum Days {
+	DAY_MONDAY,
+	DAY_TUESDAY,
+	DAY_WEDNESDAY,
+	DAY_THURSDAY,
+	DAY_FRIDAY,
+	DAY_SATURDAY,
+	DAY_SUNDAY,
+	DAY_ALL
+};
+
+struct Slot {
+	Time startTime;
+	Time endTime;
+	uint32_t temperature;
+};
+
+class Screen;
 
 //functions
 void checkButtons();
@@ -45,6 +62,12 @@ GLOBAL HardwareTimer tim1;
 GLOBAL Screen* currentScreen;
 GLOBAL Modes mode;
 
+GLOBAL Slot slots[7][8];
+
 GLOBAL uint32_t dayTemperature;
 GLOBAL uint32_t nightTemperature;
 GLOBAL uint16_t currentTemperature;
+
+GLOBAL uint32_t hysteresis;
+
+#include "screens.h"

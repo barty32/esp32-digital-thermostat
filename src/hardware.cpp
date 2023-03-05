@@ -1,6 +1,6 @@
 #include "main.h"
 
-//stavy debouncovani tlacitek
+//button debounce states
 uint16_t btn1state = 0;
 uint16_t btn2state = 0;
 uint16_t btn3state = 0;
@@ -10,9 +10,11 @@ uint32_t btn1hold = 0;
 uint32_t btn2hold = 0;
 uint32_t btn3hold = 0;
 
-uint32_t prevRepeat = 0;
+uint32_t btn1repeat = 0;
+uint32_t btn2repeat = 0;
+uint32_t btn3repeat = 0;
 
-//stav stisnkuti tlacitek
+//button press state
 uint8_t btnFlags = 0;
 
 
@@ -25,7 +27,7 @@ void checkButtons() {
 
 	if(btn1state == 0xF000) {
 		btn1hold = millis();
-		prevRepeat = 0;
+		btn1repeat = 0;
 	}
 	if(btn2state == 0xF000) {
 		btn2hold = millis();
@@ -33,19 +35,19 @@ void checkButtons() {
 	if(btn3state == 0xF000) {
 		btn3hold = millis();
 	}
-	if(btn1hold && millis() - btn1hold > HOLD_TIME && btn1state == 0xE000 && !prevRepeat) {
+	if(btn1hold && millis() - btn1hold > HOLD_TIME && btn1state == 0xE000 && !btn1repeat) {
 		btnFlags |= 0b00010000;
-		prevRepeat = 1;
+		btn1repeat = 1;
 	}
-	if(btn2hold && millis() - btn2hold > HOLD_TIME && btn2state == 0xE000 && millis() - prevRepeat > 50) {
+	if(btn2hold && millis() - btn2hold > HOLD_TIME && btn2state == 0xE000 && millis() - btn2repeat > 50) {
 		btnFlags |= 0b0010;
-		prevRepeat = millis();
+		btn2repeat = millis();
 	}
-	if(btn3hold && millis() - btn3hold > HOLD_TIME && btn3state == 0xE000 && millis() - prevRepeat > 50) {
+	if(btn3hold && millis() - btn3hold > HOLD_TIME && btn3state == 0xE000 && millis() - btn3repeat > 50) {
 		btnFlags |= 0b0100;
-		prevRepeat = millis();
+		btn3repeat = millis();
 	}
-	if(btn1state == 0xE001 && !prevRepeat) {
+	if(btn1state == 0xE001 && !btn1repeat) {
 		btnFlags |= 0b0001;
 	}
 	if(btn2state == 0xF000) {
@@ -83,6 +85,11 @@ void checkButtons() {
 			//Serial3.println("Btn--");
 			btnFlags = 0;
 			break;
+		// case 0b0110:
+		// 	currentScreen->onPlusMinus();
+		// 	Serial3.println("Btn Plus and Minus");
+		// 	btnFlags = 0;
+		// 	break;
 		default:
 			btnFlags = 0;
 	}
