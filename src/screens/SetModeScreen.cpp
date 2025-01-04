@@ -1,4 +1,5 @@
 #include "main.h"
+#include "screens/SetModeScreen.h"
 
 void SetModeScreen::render() {
 	lcd.setCursor(0, 0);
@@ -10,7 +11,7 @@ void SetModeScreen::render() {
 	lcd.print('>');
 }
 
-void SetModeScreen::onIncrease() {
+void SetModeScreen::onUp() {
 	cursorPos--;
 	if(cursorPos < 0) {
 		cursorPos = cursorPositions - 1;
@@ -18,7 +19,7 @@ void SetModeScreen::onIncrease() {
 	this->render();
 }
 
-void SetModeScreen::onDecrease() {
+void SetModeScreen::onDown() {
 	//here we want to move cursor right, so increment
 	cursorPos++;
 	if(cursorPos > cursorPositions - 1) {
@@ -27,8 +28,8 @@ void SetModeScreen::onDecrease() {
 	this->render();
 }
 
-void SetModeScreen::onModePress() {
-	switch(cursorPos){
+void SetModeScreen::onMode() {
+	/*switch(cursorPos){
 		case 0:
 			mode = MODE_OFF;
 			break;
@@ -41,6 +42,6 @@ void SetModeScreen::onModePress() {
 		case 3:
 			mode = MODE_LOW;
 			break;
-	}
+	}*/
 	this->exit();
 }

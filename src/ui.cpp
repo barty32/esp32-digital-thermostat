@@ -1,6 +1,6 @@
 #include "main.h"
 
-int32_t* getCurrentModeTemp() {
+/*int32_t* getCurrentModeTemp() {
 	if(mode == MODE_HIGH) {
 		return &highTemperature;
 	}
@@ -10,7 +10,7 @@ int32_t* getCurrentModeTemp() {
 	else {
 		return isSlotActive() ? &highTemperature : &lowTemperature;
 	}
-}
+}*/
 
 const char* dayNames[] = {
 	"Mon",
