@@ -1,86 +1,75 @@
 #pragma once
 
-//includes
+#include "config.h"
+
+//libraries
 #include <Arduino.h>
+#include <WiFi.h>
 #include <LiquidCrystal_I2C.h>
-//#include <STM32RTC.h>
+#include <I2C_eeprom.h>
+//#include <extEEPROM.h>
 #include <ESP32Time.h>
-// #include <DS18B20.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
-#include <vector>
-#include <deque>
+#include <ArduinoJson.h>
+#include <AsyncJson.h>
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
 
+//local
 #include <ButtonLib.h>
 
-
-//defines
-//#define HOLD_TIME 500
-#define MIN_TEMP 50
-#define MAX_TEMP 350
-#define TEMP_COEF 10
-#define TEMP(temp) (int32_t(temp * TEMP_COEF))
-#define TIME_NOT_SET -1
-
-#define BTN_MODE_PIN 32//PA4 //mode
-#define BTN_DOWN_PIN 33//PA5 //down
-#define BTN_UP_PIN   25//PA6 //up
-//#define BTN4_PIN PA7
-
-#define LED_PIN 2//PC13
-
-#define TEMP_SENSOR_PIN 26//PA0
-
-#define GLOBAL extern
-
-//typedefs
-typedef uint32_t Time;
-typedef uint8_t Day;
+#define LCD_SYMBOL_DEGREE (char)223
 
 //class forward declarations
+class Day;
+class Time;
+class TimeSlot;
 class Screen;
+class ScreenManager;
+class ThermostatController;
 
-//enums
-enum Modes {
-	MODE_OFF,
-	MODE_LOW,
-	MODE_HIGH,
-	MODE_PROGRAM
-};
+struct Temperature {
 
-enum Days {
-	DAY_MONDAY,
-	DAY_TUESDAY,
-	DAY_WEDNESDAY,
-	DAY_THURSDAY,
-	DAY_FRIDAY,
-	DAY_SATURDAY,
-	DAY_SUNDAY,
-	DAY_ALL
-};
+	enum Unit {
+		UNIT_CELSIUS,
+		UNIT_FAHRENHEIT
+	};
 
-enum BtnInputs {
-	BTN_MODE,
-	BTN_DOWN,
-	BTN_UP
-};
+	static constexpr float NOT_SET = -128.0f;
+	static constexpr float DISCONNECTED = DEVICE_DISCONNECTED_C;
 
-struct Slot {
-	Time startTime = TIME_NOT_SET;
-	Time endTime = TIME_NOT_SET;
-	// uint32_t temperature;
+	float temperature = NOT_SET;
 
-	inline bool operator==(const Slot right) const {
-		return startTime == right.startTime && endTime == right.endTime/* && right.temperature == temperature*/;
+	Temperature() {}
+
+	Temperature(float temperature) :
+	  temperature(temperature) {
+	}
+	
+
+	inline bool isSet() const { return temperature != NOT_SET; }
+
+	String toString(int decimalPlaces = 2, Unit unit = UNIT_CELSIUS) const {
+		if(temperature == NOT_SET) {
+			String t = "--.";
+			while(decimalPlaces--) t += '-';
+			return t;
+		}
+		return String(unit == UNIT_FAHRENHEIT ? temperature * 9.0 / 5.0 + 32.0 : temperature, decimalPlaces);
 	}
 
-	inline bool operator!=(const Slot right) const {
-		return !operator==(right);
-	}
+	Temperature operator+(const Temperature &right) const { return Temperature(temperature + right.temperature); }
+	Temperature operator-(const Temperature &right) const { return Temperature(temperature - right.temperature); }
+	//Temperature operator*(const Temperature &right) const { return Temperature(temperature * right.temperature); }
+	//Temperature operator/(const Temperature &right) const { return Temperature(temperature / right.temperature); }
 
-	inline bool isSet() const {
-		return startTime != TIME_NOT_SET && endTime != TIME_NOT_SET;
-	}
+	friend bool operator==(const Temperature &left, const Temperature &right) { return left.temperature == right.temperature; }
+	friend bool operator!=(const Temperature &left, const Temperature &right) { return !operator==(left, right); }
+	friend bool operator<(const Temperature &left, const Temperature &right) { return left.temperature < right.temperature; }
+	friend bool operator>(const Temperature &left, const Temperature &right) { return operator<(right, left); }
+	friend bool operator<=(const Temperature &left, const Temperature &right) { return !operator>(left, right); }
+	friend bool operator>=(const Temperature &left, const Temperature &right) { return !operator<(left, right); }
 };
 
 template <uint8_t num_inputs = 1>
@@ -100,41 +89,23 @@ class ArduinoButtonReader : public ButtonReader<num_inputs> {
 	}
 };
 
-//function prototypes
-uint32_t getTemperature();
-void initADC();
-void checkTemperature();
-void turnOn();
-void turnOff();
-// void setRegulation(uint32_t reg);
-int32_t* getCurrentModeTemp();
-Time getTimeOfDay();
-Slot* isSlotActive(const Time time = getTimeOfDay());
-bool sweep(Time time);
+//tasks
+void taskReadTemperature(void* pvParameters);
+void taskTickThermostatLogic(void* pvParameters);
 
-//global variables
-GLOBAL LiquidCrystal_I2C lcd;
-// GLOBAL HardwareSerial Serial3;
-GLOBAL hw_timer_t* tim1;
-GLOBAL ESP32Time rtc;
-// GLOBAL DS18B20 temp;
-GLOBAL OneWire oneWire;
-GLOBAL DallasTemperature temp;
-GLOBAL ArduinoButtonReader<3> buttons;
+//utils
+void setupWebServer();
 
-GLOBAL Screen* currentScreen;
-GLOBAL Modes mode;
+//global interfaces
+extern LiquidCrystal_I2C lcd;
+extern I2C_eeprom eeprom;
+//extern extEEPROM eeprom;
+extern hw_timer_t* tim1;
+extern ESP32Time rtc;
+extern OneWire oneWire;
+extern DallasTemperature temp;
+extern AsyncWebServer server;
+extern ArduinoButtonReader<5> buttons;
+extern ScreenManager screenManager;
 
-GLOBAL Slot slots[7][8];
-
-GLOBAL int32_t lowTemperature;
-GLOBAL int32_t highTemperature;
-GLOBAL int32_t currentTemperature;
-
-//GLOBAL Day currentDay;
-
-GLOBAL uint32_t hysteresis;
-
-#include "screens.h"
-
-
+extern ThermostatController thermostat;
