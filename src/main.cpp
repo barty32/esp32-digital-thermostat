@@ -16,6 +16,7 @@ CorsMiddleware cors;
 //these have to be in the same order as ScreenManager::Button
 static const uint8_t inputs[] = {BTN_UP_PIN, BTN_DOWN_PIN, BTN_LEFT_PIN, BTN_RIGHT_PIN, BTN_MODE_PIN};
 ArduinoButtonReader<5> buttons(inputs);
+Terminal terminal;
 ScreenManager screenManager;
 
 ThermostatController thermostat;
@@ -26,6 +27,9 @@ void setup() {
 	Serial.println("============================");
 	Serial.println("  ESP32 Digital Thermostat  ");
 	Serial.println("============================");
+
+	terminal.init();
+	terminal.setCommandHandler(handleTerminalCommand);
 
 	for(auto &input : inputs) {
 		pinMode(input, INPUT_PULLUP);
@@ -246,95 +250,9 @@ void loop() {
 
 	buttons.executeHandlers();
 	screenManager.update();
-	//thermostat.update();
+	terminal.update();
 
-	if(Serial.available()) {
-		String received = Serial.readString();
-		received.trim();
-		const int colon = received.indexOf(':');
-		String command = colon == -1 ? received : received.substring(0, colon);
-		String payload = colon == -1 ? "" : received.substring(colon + 1);
-		if(command == "sweep") {
-			/*for(int i = 0; i < 1440; ++i) {
-				Serial.println(sweep(i * 60) ? "1," : "0,");
-			}*/
-		}
-		else if(command == "dump") {
-			/*String line1 = "+------+";
-			String line2 = "| Slot |";
-			String line3 = "+------+";
-			for(int i = 0; i < 8; i++) {
-				line1 += "-------+";
-				line2 += "   " + String(i) + "   |";
-				line3 += "-------+";
-			}
-			Serial.println(line1);
-			Serial.println(line2);
-			Serial.println(line3);
-
-			int i = 0;
-			for(auto &day : slots) {
-				String line1 = "| " + String(dayNames[i]) + "  |";
-				String line2 = "|      |";
-				String line3 = "|------+";
-				for(auto &slot : day) {
-					line1 += " " + printTime(slot.startTime) + " |";
-					line2 += " " + printTime(slot.endTime) + " |";
-					line3 += "-------+";
-				}
-				Serial.println(line1);
-				Serial.println(line2);
-				Serial.println(line3);
-				i++;
-			}*/
-		}
-		else if(command == "setTemp"){
-			// const int temp = int(payload.toFloat() * 10.0);
-			// currentTemperature = temp;
-			// Serial.println("Set current temperature to: " + String(temp / 10.0));
-		}
-		//+------+-------+-------+---
-		//| Slot |   1   |   2   |
-		//|------+-------+-------+---
-		//| Mon  | --:-- |  5:30 |
-		//|      | --:-- |  6:30 |
-		//|------+-------+-------+---
-		//
-		//
-		//
-        // long temp = received.toInt();
-        // if (temp == 0) {
-        //     //vypise vsechny zmeny
-        //     for (auto& change : changes) {
-		// 		printSerial(change, false);
-		// 	}
-		// }
-        // else if (temp > 250 || temp < 150) {
-		// 	//Serial3.println("mimo rozsah!");
-        //     printSerial(ChangeData{ msgNumCounter++, millis(), setTemperature, currentTemperature, heaterOn }, true);
-        // } else {
-        //     temp -= temp % 5;//zaokrouhleni
-		// 	setTemperature = temp;
-        //     printSerial(ChangeData{ msgNumCounter++, millis(), setTemperature, currentTemperature, heaterOn }, true);
-		// }
-	}
-
-	// static uint32_t lastPrint = 0;
-	// if(millis() - lastPrint > 1000) {
-
-	// 	temp.requestTemperatures();
-	// 	float t = temp.getTempCByIndex(0);
-	// 	thermostat.sendTemperatureUpdate(t);
-	// 	Serial.println("Got temperature: " + String(t));
-
-	// 	// if(currentScreen->autoRender){
-	// 		// currentScreen->render();
-	// 	// }
-
-	// 	lastPrint = millis();
-	// }
-
-	delay(10);
+	delay(1);
 }
 
 void taskReadTemperature(void* pvParameters) {

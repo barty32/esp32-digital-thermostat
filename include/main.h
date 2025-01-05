@@ -18,6 +18,7 @@
 
 //local
 #include <ButtonLib.h>
+#include <Terminal.h>
 
 #define LCD_SYMBOL_DEGREE (char)223
 
@@ -95,6 +96,7 @@ void taskTickThermostatLogic(void* pvParameters);
 
 //utils
 void setupWebServer();
+void handleTerminalCommand(Terminal& terminal, const String &command, const String &params);
 
 //global interfaces
 extern LiquidCrystal_I2C lcd;
