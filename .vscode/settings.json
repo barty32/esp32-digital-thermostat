@@ -1,12 +1,14 @@
 {
-	"stm32-for-vscode.openOCDPath": false,
+	"stm32-for-vscode.openOCDPath": "/usr/bin/openocd",
 	"stm32-for-vscode.armToolchainPath": false,
 	"C_Cpp.intelliSenseEngine": "disabled",
-	"clangd.path": "/home/barty/Documents/build/esp-clang/bin/clangd",
+	// "clangd.path": "/home/barty/Documents/build/esp-clang/bin/clangd",
+	"clangd.path": "${workspaceFolder}/.vscode/clangd.sh",
 	"clangd.arguments": [
 		"--header-insertion=never",
 		"--fallback-style=none",
 		"--function-arg-placeholders=0",
-		"--query-driver=/home/barty/.platformio/packages/toolchain-xtensa-esp32/bin/xtensa-esp32-elf-g++"
+		// "--query-driver=/home/barty/.platformio/packages/toolchain-xtensa-esp32/bin/xtensa-esp32-elf-g++"
 	],
+	"cortex-debug.variableUseNaturalFormat": false,
 }
