@@ -9,18 +9,14 @@ void HomeScreen::render() {
 	//lcd.print(dayNames[rtc.getDayofWeek()]); //rtc.getWeekDay() - 1
 	lcd.print("Mon");
 	lcd.print(" ");
-	lcd.print("10");
-	//printTime(rtc.getHour(true), rtc.getMinute(), ((millis() / 1000) % 2));
-	// lcd.print(Time::now().toString());
-	lcd.print(((millis() / 1000) % 2) ? ":" : " ");
-	lcd.print("15");
+	lcd.print(Time::now().toString(((millis() / 1000) % 2) ? ":" : " "));
 	lcd.print(" ");
 	lcd.setCursor(10, 0);
 	// if(currentTemperature < TEMP(10)) {
 	// 	lcd.print(" ");
 	// }
 	// lcd.print(currentTemperature / (double)TEMP_COEF, 1);
-	lcd.print(thermostat.getCurrentTemperature().toString());
+	lcd.print(thermostat.getCurrentTemperature().toString(1));
 	lcd.print((char)223); //degree
 	lcd.print("C ");
 	lcd.setCursor(0, 1);
@@ -47,7 +43,7 @@ void HomeScreen::render() {
 	// else {
 	// 	lcd.print("--.-");
 	// }
-	lcd.print("17.0");
+	lcd.print(thermostat.getMinThreshold().toString(1));
 	lcd.print((char)223); //degree
 	lcd.print("C ");
 	lcd.print("Home screen");

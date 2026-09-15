@@ -3,10 +3,91 @@
 #include "ThermostatController.h"
 
 
-struct WiFiConfig {
-	char ssid[32];
-	char password[32];
-};
+bool loadThermostatConfig() {
+	if(!LittleFS.exists(THERMOSTAT_CONFIG_FILE)) {
+		return false;
+	}
+	ThermostatController::PersistentConfig config;
+	File cfg = LittleFS.open(THERMOSTAT_CONFIG_FILE, FILE_READ);
+	if(!cfg) {
+		log_e("Failed to open thermostat config file.");
+		return false;
+	}
+	
+	cfg.read((byte*)&config, sizeof(config));
+	cfg.close();
+	if(!thermostat.loadConfig(config)) {
+		return false;
+	}
+	return true;
+}
+
+bool saveThermostatConfig() {
+	ThermostatController::PersistentConfig config;
+	File cfg = LittleFS.open(THERMOSTAT_CONFIG_FILE, FILE_WRITE, true);
+	if(!cfg) {
+		log_e("Failed to open thermostat config file.");
+		return false;
+	}
+	thermostat.storeConfig(config);
+	cfg.write((byte*)&config, sizeof(config));
+	cfg.close();
+	return true;
+}
+
+bool loadWifiConfig(WiFiConfig &config) {
+	if(!LittleFS.exists(WIFI_CONFIG_FILE)) {
+		return false;
+	}
+	File cfg = LittleFS.open(WIFI_CONFIG_FILE, FILE_READ);
+	if(!cfg) {
+		log_e("Failed to open wifi config file.");
+		return false;
+	}
+	cfg.read((byte*)&config, sizeof(config));
+	cfg.close();
+	if(config.version != 1) {
+		log_e("Invalid saved WiFi config version.");
+		return false;
+	}
+	return true;
+}
+
+// bool saveWifiConfig(const WiFiConfig &config) {
+// 	eeprom.updateBlock(300, (byte*)&config, sizeof(config));
+// 	return true;
+// }
+
+bool connectWiFi(WiFiConfig &wifi, bool reportToLcd) {
+
+	WiFi.mode(WIFI_STA);
+
+	if(wifi.ip) {
+		IPAddress localIP = IPAddress(wifi.ip);
+		IPAddress gateway = IPAddress(wifi.gateway);
+		IPAddress subnet = IPAddress(wifi.subnet);
+		if(!WiFi.config(localIP, gateway, subnet)) {
+			log_e("Failed to set static IP.");
+		}
+	}
+
+	if(WiFi.begin(wifi.ssid, wifi.password) == WL_CONNECT_FAILED) {
+		return false;
+	}
+
+	WiFi.setAutoReconnect(true);
+
+	int retries = 16;
+	while(WiFi.status() != WL_CONNECTED) {
+		if(reportToLcd) lcd.print(".");
+		vTaskDelay(500 / portTICK_PERIOD_MS);
+		if(!--retries) {
+			return false;
+		}
+	}
+
+	return true;
+}
 
 
 void setupCaptivePortal() {
@@ -15,10 +96,24 @@ void setupCaptivePortal() {
 
 }
 
-void setupWebServer() {
-	server.on("/", HTTP_GET, [](AsyncWebServerRequest* request) {
-		
-		request->send(200, "text/plain", "Hello, world");
+void setupApiEndpoints() {
+
+	server.on("/api/status", HTTP_GET, [](AsyncWebServerRequest* request) {
+
+	});
+
+	server.on("/api/config", HTTP_GET, [](AsyncWebServerRequest* request) {
+		File file = LittleFS.open(THERMOSTAT_CONFIG_FILE, FILE_READ);
+		if(!file) {
+			request->send(500, "text/plain", "Failed to open config file.");
+			return;
+		}
+
+		ThermostatController::PersistentConfig cfg;
+		file.read((byte*)&cfg, sizeof(cfg));
+		file.close();
+
+		request->send(200, "application/octet-stream", (byte*)&cfg, sizeof(cfg));
 	});
 
 	server.on("/api/time", HTTP_GET, [](AsyncWebServerRequest* request) {
@@ -29,6 +124,59 @@ void setupWebServer() {
 		long time = request->getParam("time")->value().toInt();
 		rtc.setTime(time, 0);
 		request->send(200, "text/plain", "ok");
+	});
+
+	server.on("/api/temperature/history", HTTP_GET, [](AsyncWebServerRequest* request) {
+		AsyncJsonResponse* response = new AsyncJsonResponse();
+		JsonArray root = response->getRoot().to<JsonArray>();
+
+		File meta = LittleFS.open(HISTORY_METADATA_FILE, FILE_READ);
+		File history = LittleFS.open(TEMPERATURE_HISTORY_FILE, FILE_READ);
+		if(!meta || !history) {
+			JsonObject root = response->getRoot().to<JsonObject>();
+			root["success"] = false;
+			root["error"] = "Failed to open history files.";
+			response->setLength();
+			response->setCode(500);
+			request->send(response);
+			return;
+		}
+
+		struct TempMeta {
+			int numPoints;
+			int pointer;
+		};
+
+		struct TempRecord {
+			int64_t timestamp;
+			float temperature;
+		};
+
+		TempMeta metaInfo;
+		meta.read((byte*)&metaInfo, sizeof(metaInfo));
+		meta.close();
+
+		for(int i = 0; i < metaInfo.numPoints; i++) {
+			TempRecord record;
+			history.read((byte*)&record, sizeof(record));
+			JsonArray obj = root[i].to<JsonArray>();
+			obj[0] = record.timestamp;
+			if(record.temperature == Temperature::NOT_SET) obj[1] = nullptr;
+			else obj[1] = record.temperature;
+		}
+		history.close();
+
+		response->setLength();
+		request->send(response);
+	});
+
+	server.on("/api/temperature", HTTP_GET, [](AsyncWebServerRequest* request) {
+		Temperature temp = thermostat.getCurrentTemperature();
+		request->send(
+			200,
+			"text/plain",
+			temp == Temperature::NOT_SET ? "null" : String(temp.temperature, 1)
+		);
 	});
 
 	server.on("/api/temperature", HTTP_POST, [](AsyncWebServerRequest* request) {
@@ -153,6 +301,65 @@ void setupWebServer() {
 	server.addHandler(jsonHandler);
 }
 
+void logCurrentTemperature() {
+	
+	struct TempMeta {
+		int numPoints;
+		int pointer;
+	};
+
+	struct TempRecord {
+		int64_t timestamp;
+		float temperature;
+	};
+
+	const int maxPoints = 1440;
+	Temperature temp = thermostat.getCurrentTemperature();
+	TempRecord current;
+	current.timestamp = Time::now().toEpoch();
+	current.temperature = temp.temperature;
+
+	File file;
+	File meta;
+	if(!LittleFS.exists(HISTORY_METADATA_FILE) || !LittleFS.exists(TEMPERATURE_HISTORY_FILE)) {
+		meta = LittleFS.open(HISTORY_METADATA_FILE, "w", true);
+		file = LittleFS.open(TEMPERATURE_HISTORY_FILE, "w", true);
+		if(!file || !meta) {
+			log_e("Failed to open temperature log file.");
+			return;
+		}
+
+		TempMeta data;
+		data.numPoints = 0;
+		data.pointer = 0;
+		meta.write((byte*)&data, sizeof(TempMeta));
+		meta.close();
+		file.write((byte*)&current, sizeof(TempRecord));
+		file.close();
+	}
+	else {
+		meta = LittleFS.open(HISTORY_METADATA_FILE, "r+", true);
+		file = LittleFS.open(TEMPERATURE_HISTORY_FILE, "r+", true);
+		if(!file || !meta) {
+			log_e("Failed to open temperature log file.");
+			return;
+		}
+
+		TempMeta data;
+		meta.read((byte*)&data, sizeof(TempMeta));
+
+		file.seek(data.pointer * sizeof(TempRecord));
+		file.write((byte*)&current, sizeof(TempRecord));
+		data.pointer++;
+		if(data.pointer >= maxPoints) data.pointer = 0;
+		if(data.numPoints < maxPoints) data.numPoints++;
+		meta.seek(0);
+		meta.write((byte*)&data, sizeof(TempMeta));
+		meta.close();
+		file.close();
+	}
+}
+
 // int timedRead(Stream &stream, int timeout = 1000) {
 // 	int64_t start = esp_timer_get_time();
 // 	do {
@@ -271,9 +478,8 @@ void handleTerminalCommand(Terminal& terminal, const String &command, const Stri
 		stream.println("  uptime - Show the device uptime");
 		stream.println("  wifi - Show WiFi configuration");
 		stream.println("  temperature - Manage temperature slots");
-		stream.println("  sweep - Sweep the temperature range");
+		stream.println("  slot - Manage time slots");
 		stream.println("  dump - Dump the current schedule");
-		stream.println("  setTemp - Set the current temperature");
 	}
 	else {
 		stream.println("Unknown command: '" + command + "'. Use 'help' for a list of commands.");

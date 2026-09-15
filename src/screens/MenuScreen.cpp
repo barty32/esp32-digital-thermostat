@@ -50,11 +50,7 @@ void MenuScreen::onItemSelected(int cursor) {
 }
 
 void MenuScreen::exit() {
-
-	ThermostatController::PersistentConfig config;
-	thermostat.saveConfig(config);
-	uint16_t bytes = eeprom.updateBlock(0, (byte*)&config, sizeof(config));
-	Serial.println("Updated config in EEPROM, written bytes: " + String(bytes));
+	saveThermostatConfig();
 
 	ScrollableListScreen::exit();
 }

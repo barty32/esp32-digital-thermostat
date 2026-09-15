@@ -5,9 +5,10 @@
 //libraries
 #include <Arduino.h>
 #include <WiFi.h>
-#include <LiquidCrystal_I2C.h>
-#include <I2C_eeprom.h>
+//#include <I2C_eeprom.h>
 //#include <extEEPROM.h>
+#include <LittleFS.h>
+#include <LiquidCrystal_I2C.h>
 #include <ESP32Time.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
@@ -29,6 +30,22 @@ class TimeSlot;
 class Screen;
 class ScreenManager;
 class ThermostatController;
+
+enum Status {
+	STATUS_LOADING,
+	STATUS_NOT_SETUP,
+	STATUS_OFFLINE,
+	STATUS_READY,
+};
+
+struct WiFiConfig {
+	byte version = 0;
+	char ssid[33];
+	char password[65];
+	uint32_t ip;
+	uint32_t gateway;
+	uint32_t subnet;
+};
 
 struct Temperature {
 
@@ -92,15 +109,22 @@ class ArduinoButtonReader : public ButtonReader<num_inputs> {
 
 //tasks
 void taskReadTemperature(void* pvParameters);
+void taskLogTemperature(void* pvParameters);
 void taskTickThermostatLogic(void* pvParameters);
+void taskReconnectWifi(void* pvParameters);
 
 //utils
-void setupWebServer();
+bool loadThermostatConfig();
+bool saveThermostatConfig();
+bool loadWifiConfig(WiFiConfig &config);
+bool connectWiFi(WiFiConfig &wifi, bool reportToLcd = false);
+void setupApiEndpoints();
+void logCurrentTemperature();
 void handleTerminalCommand(Terminal& terminal, const String &command, const String &params);
 
 //global interfaces
 extern LiquidCrystal_I2C lcd;
-extern I2C_eeprom eeprom;
+//extern I2C_eeprom eeprom;
 //extern extEEPROM eeprom;
 extern hw_timer_t* tim1;
 extern ESP32Time rtc;

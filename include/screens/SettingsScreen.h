@@ -11,7 +11,6 @@ class SettingsScreen : public ScrollableListScreen {
 		OPTION_PROPERTIES,
 		OPTION_STATISTICS,
 		OPTION_FACTORY_RESET,
-		OPTION_TEST,
 		OPTION_EXIT
 	};
 
@@ -21,7 +20,6 @@ class SettingsScreen : public ScrollableListScreen {
 		"Adjust props",
 		"Statistics",
 		"Factory reset",
-		"test",
 		"Back"
 	};
 

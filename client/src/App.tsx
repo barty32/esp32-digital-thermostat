@@ -2,7 +2,9 @@ import {FormEvent, useEffect, useState} from 'react'
 // import reactLogo from './assets/react.svg'
 // import viteLogo from '/vite.svg'
 import './App.css'
-import {ITemperatureSlot, ITimeSlot} from './types';
+import {  ITimeSlot} from './types';
+import TemperatureGraph from './TemperatureGraph';
+import TemperatureSlot from './TemperatureSlot';
 
 function formatTime(time: Date) {
 	return time.getUTCHours() + ':' + time.getUTCMinutes().toString().padStart(2, '0');
@@ -20,7 +22,9 @@ export default function App() {
 	const [timeSlots, setTimeSlots] = useState<ITimeSlot[]>([]);
 	const [tempSlots, setTempSlots] = useState<number[]>([]);
 
-	const [test, setTest] = useState<number>(0);
+	const [history, setHistory] = useState<number[][]>([[0, 0]]);
+
+	const [temp, setTemp] = useState<number>(20.5);
 
 	// const [temperature, setTemperature] = useState<number>(21.0);
 	// const [tempSlot, setTempSlot] = useState<number>(0);
@@ -49,12 +53,40 @@ export default function App() {
 			.catch(console.error);
 	}
 
+	const fetchHistory = () => {
+		fetch(`${ipAddress}/api/temperature/history`, {
+			method: 'GET',
+			mode: 'cors',
+		})
+			.then(response => response.json())
+			.then((data: number[][]) => {
+				data.sort((a, b) => a[0] - b[0]);
+				//data = data.filter((point, index) => point.timestamp > 1736115867000);
+				setHistory(data);
+			})
+			.catch(console.error);
+		
+		fetch(`${ipAddress}/api/temperature`, {
+			method: 'GET',
+			mode: 'cors',
+		})
+			.then(response => response.text())
+			.then((data: string) => {
+				setTemp(parseFloat(data));
+			})
+			.catch(console.error);
+	}
+
 	useEffect(() => {
 		fetchTimeSlots();
 	}, []);
 
 	useEffect(() => {
 		fetchTempSlots();
+	}, []);
+
+	useEffect(() => {
+		fetchHistory();
 	}, []);
 
 	const handleTimeSlotSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -114,73 +146,79 @@ export default function App() {
 			.catch(console.error);
 	};
 
-	return (
-		<div style={{display: 'flex'}}>
-			<div style={{display: 'flex', flexDirection: 'column', margin: '10px'}}>
-				<b>Time slots:</b>
-				{timeSlots.map((timeSlot, index) => (
-					<div key={index} style={{
-						border: '1px solid black',
-						padding: '5px',
-						background: '#444',
-						textAlign: 'left'
-					}}>
-						<div>Slot: {index}</div>
-						<div>Start: {formatTime(new Date(timeSlot.startTime))}</div>
-						<div>End: {formatTime(new Date(timeSlot.endTime))}</div>
-						<div>Days: {timeSlot.days}</div>
-						<div>Temperature slot: {timeSlot.temperatureSlot === null ? 'null' : `${timeSlot.temperatureSlot} (${tempSlots[timeSlot.temperatureSlot]} °C)`}</div>
-						<div>Enabled: {timeSlot.active ? 'true' : 'false'}</div>
-					</div>
-				))}
-			</div>
-			<div style={{display: 'flex', flexDirection: 'column', margin: '10px'}}>
-				<b>Temperature slots:</b>
-				{tempSlots.map((slot, index) => (
-					<div key={index} style={{
-						border: '1px solid black',
-						padding: '5px',
-						background: '#444',
-						textAlign: 'left'
-					}}>
-						<div>Slot: {index}</div>
-						<div>Temperature: {slot} °C</div>
-					</div>
-				))}
-			</div>
-			<div style={{display: 'flex', flexDirection: 'column', margin: '10px'}}>
-				<b>Set temperature slot:</b>
-				<div style={{
-					border: '1px solid black',
-					padding: '5px',
-					background: '#444',
-					textAlign: 'left'
-				}}>
-					<form onSubmit={handleTempSlotSubmit}>
-						<div>Slot: <input type="number" name="slot" min={0} max={tempSlots.length - 1} step={1} /></div>
-						<div>Temperature: <input type="number" step={0.01} name="temperature" /> °C</div>
-						<input type="submit" value="Set" />
-					</form>
-				</div>
 
-				<b>Set time slot:</b>
-				<div style={{
-					border: '1px solid black',
-					padding: '5px',
-					background: '#444',
-					textAlign: 'left'
-				}}>
-					<form onSubmit={handleTimeSlotSubmit}>
-						<div>Slot: <input type="number" name="slot" min={0} max={timeSlots.length - 1} step={1} /></div>
-						<div>Temperature slot: <input type="number" name="tempSlot" min={0} max={tempSlots.length - 1} step={1} /></div>
-						<div>From: <input type="time" name="from" /></div>
-						<div>To: <input type="time" name="to" /></div>
-						<div><input type="checkbox" name="active" /><label>Enabled</label></div>
-						<input type="submit" value="Set" />
-					</form>
+	return (
+		<div style={{display: 'flex', flexDirection: 'column', margin: '10px'}}>
+			<h1>ESP32 Digital Thermostat</h1>
+			<TemperatureGraph points={history} />
+			
+				
+			<div style={{display: 'flex', flexDirection: 'column', margin: '10px', gap: '10px'}}>
+				<div style={{display: 'flex', flexDirection: 'row', gap: '10px'}}>
+					<div style={{flexGrow: 1}}>
+						<b>Actual temperature:</b>
+						<div className='box'>
+							<div style={{fontSize: 35, fontWeight: 'bold', textAlign: 'center'}}>{temp.toString()} °C</div>
+						</div>
+					</div>
+					<div style={{flexGrow: 1}}> 
+						<b>Status:</b>
+						<div className='box'>
+							<div style={{fontSize: 35, fontWeight: 'bold', color: 'red', textAlign: 'center'}}>OFF</div>
+						</div>
+					</div>
 				</div>
-				<b>{test}</b>
-				<button onClick={() => setTest(t => t + 1)}>++</button>
+				<div style={{display: 'flex', justifyContent: 'space-between'}}>
+					<div style={{
+						display: 'flex',
+						flexDirection: 'column',
+						margin: '10px',
+						gap: '10px',
+						padding: '10px',
+						borderRadius: '10px',
+						background: '#222',
+						border: '2px solid #111'
+					}}>
+						<b>Temperature slots:</b>
+						{tempSlots.map((slot, index) => (
+							<TemperatureSlot slotIndex={index} temperature={slot}/>
+						))}
+					</div>
+					<div style={{display: 'flex', flexDirection: 'column', margin: '10px', gap: '10px'}}>
+						<b>Time slots:</b>
+						{timeSlots.map((timeSlot, index) => (
+							<div key={index} className='box'>
+								<div>Slot: {index}</div>
+								<div>Start: {formatTime(new Date(timeSlot.startTime))}</div>
+								<div>End: {formatTime(new Date(timeSlot.endTime))}</div>
+								<div>Days: {timeSlot.days}</div>
+								<div>Temperature slot: {timeSlot.temperatureSlot === null ? 'null' : `${timeSlot.temperatureSlot} (${tempSlots[timeSlot.temperatureSlot]} °C)`}</div>
+								<div>Enabled: {timeSlot.active ? 'true' : 'false'}</div>
+							</div>
+						))}
+					</div>
+
+					{/* <b>Set temperature slot:</b>
+					<div className='box'>
+						<form onSubmit={handleTempSlotSubmit}>
+							<div>Slot: <input type="number" name="slot" min={0} max={tempSlots.length - 1} step={1} style={{float: 'right'}}/></div>
+							<div>Temperature: <input type="number" step={0.01} name="temperature" /> °C</div>
+							<input type="submit" value="Set" />
+						</form>
+					</div>
+
+					<b>Set time slot:</b>
+					<div className='box'>
+						<form onSubmit={handleTimeSlotSubmit}>
+							<div>Slot: <input type="number" name="slot" min={0} max={timeSlots.length - 1} step={1} style={{float: 'right'}} /></div>
+							<div>Temperature slot: <input type="number" name="tempSlot" min={0} max={tempSlots.length - 1} step={1} style={{float: 'right'}} /></div>
+							<div>From: <input type="time" name="from" style={{float: 'right'}} /></div>
+							<div>To: <input type="time" name="to" style={{float: 'right'}} /></div>
+							<div><input type="checkbox" name="active" /><label>Enabled</label></div>
+							<input type="submit" value="Set" />
+						</form>
+					</div> */}
+				</div>
 			</div>
 		</div>
 	);

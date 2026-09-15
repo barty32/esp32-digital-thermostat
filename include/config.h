@@ -12,9 +12,14 @@
 #define SETUP_WIFI_SSID "esp32thermostat"
 #define SETUP_WIFI_PASS NULL
 
+#define THERMOSTAT_CONFIG_FILE "/config.cfg"
+#define WIFI_CONFIG_FILE       "/wifi.cfg"
+#define TEMPERATURE_HISTORY_FILE "/history.dat"
+#define HISTORY_METADATA_FILE "/history_meta.dat"
+
 #define LCD_I2C_ADDR 0x27
-#define EEPROM_I2C_ADDR 0x50
-#define EEPROM_I2C_SIZE I2C_DEVICESIZE_24LC04
+//#define EEPROM_I2C_ADDR 0x50
+//#define EEPROM_I2C_SIZE I2C_DEVICESIZE_24LC04
 
 //pin definitions
 #define BTN_UP_PIN    36

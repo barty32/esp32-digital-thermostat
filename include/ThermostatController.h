@@ -38,7 +38,7 @@ class ThermostatController {
 			uint8_t temperatureSlot; //slot index 0-TEMP_SLOT_COUNT
 			bool active : 1;
 		};
-		byte version = 1;//format version
+		byte version = 0;//format version
 		Mode mode;
 		Temperature minThreshold;
 		Temperature maxThreshold;
@@ -120,6 +120,12 @@ class ThermostatController {
 	}
 
 	void update() {
+		static float p = 0.0;
+		p += 0.1;
+		if(p > 1.0) p = 0.0;
+		this->setOutputPower(p);
+		//log_i("Setting dac to %d", (millis() % 1000) / 1000.0 * 255);
+		//dacWrite(ANALOG_CTRL_PIN, (millis() % 1000) / 1000.0 * 255);
 		return;
 		//priorities:
 		//
@@ -227,7 +233,7 @@ class ThermostatController {
 
 	bool loadConfig(const PersistentConfig &config) {
 		if(config.version != 1) {
-			log_e("Invalid saved config version - loading defaults.");
+			log_e("Invalid saved config version.");
 			return false;
 		}
 		mode = config.mode;
@@ -249,7 +255,7 @@ class ThermostatController {
 		return true;
 	}
 
-	void saveConfig(PersistentConfig &config) {
+	void storeConfig(PersistentConfig &config) {
 		config.version = 1;
 		config.mode = mode;
 		config.minThreshold = minThreshold;

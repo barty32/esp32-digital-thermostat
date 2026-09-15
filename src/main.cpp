@@ -4,9 +4,9 @@
 #include "ThermostatController.h"
 
 LiquidCrystal_I2C lcd(LCD_I2C_ADDR, 16, 2);
-I2C_eeprom eeprom(EEPROM_I2C_ADDR, EEPROM_I2C_SIZE);
+//I2C_eeprom eeprom(EEPROM_I2C_ADDR, EEPROM_I2C_SIZE);
 //extEEPROM eeprom(kbits_4, 1, 16, 0x50);
-hw_timer_t *tim1 = NULL;
+hw_timer_t* tim1 = NULL;
 ESP32Time rtc;
 OneWire oneWire(TEMP_SENSOR_PIN);
 DallasTemperature temp(&oneWire);
@@ -34,11 +34,11 @@ void setup() {
 	for(auto &input : inputs) {
 		pinMode(input, INPUT_PULLUP);
 	}
-    pinMode(LED_BUILTIN_PIN, OUTPUT);
-	pinMode(TEMP_SENSOR_PIN, INPUT_PULLUP);
+	pinMode(LED_BUILTIN_PIN, OUTPUT);
+	pinMode(TEMP_SENSOR_PIN, INPUT);
 	pinMode(ANALOG_CTRL_PIN, OUTPUT);
 
-	Serial.println("Initialising temperature sensor...");
+	log_i("Initialising temperature sensor...");
 	temp.begin();
 	DeviceAddress addr;
 	if(temp.getAddress(addr, 0)) {
@@ -51,14 +51,14 @@ void setup() {
 		}
 		Serial.println();
 	}
-	else{
-		Serial.println("Unable to find address for temperature sensor.");
+	else {
+		log_w("Unable to find address for temperature sensor.");
 	}
 
 	temp.setResolution(12);
 	temp.setWaitForConversion(false);
 
-	Serial.println("Initialising RTC...");
+	log_i("Initialising RTC...");
 	// rtc.setClockSource(STM32RTC::LSE_CLOCK);
 	// rtc.begin();
 	// if(!rtc.isConfigured()) {
@@ -66,10 +66,11 @@ void setup() {
 	// 	rtc.setTime(0, 0, 0);
 	// }
 	//TODO: sync time with NTP
-	rtc.setTime(0, 12, 10, 17, 10, 2023);
+	//rtc.setTime(0, 12, 10, 17, 10, 2023);
+	configTime(3600, 0, "pool.ntp.org", "time.nist.gov");
 	Serial.println("Current time: " + rtc.getDateTime());
 
-	Serial.println("Initialising button handlers...");
+	log_i("Initialising button handlers...");
 	buttons.setDetectLongPress(ScreenManager::BTN_RIGHT, true);
 	buttons.setDetectLongPress(ScreenManager::BTN_LEFT, true);
 	buttons.setDetectLongPress(ScreenManager::BTN_MODE, true);
@@ -86,168 +87,168 @@ void setup() {
 
 	//run isr at 1000Hz
 	tim1 = timerBegin(0, 80, true);
-	timerAttachInterrupt(tim1, [](){buttons.readInputs_isr();}, true);
+	timerAttachInterrupt(tim1, []() { buttons.readInputs_isr(); }, true);
 	timerAlarmWrite(tim1, 1000, true);
 	timerAlarmEnable(tim1);
 
-
-	Serial.println("Initialising LCD...");
+	log_i("Initialising LCD...");
 	screenManager.init();
 	lcd.setCursor(0, 0);
 	lcd.print("ESP32 Thermostat");
 	lcd.setCursor(0, 1);
 	lcd.print("  ver: 1.0      ");
 
-	// byte error, address;
-	// int nDevices;
-
-	// Serial.println("Scanning...");
-
-	// nDevices = 0;
-	// for(address = 1; address < 127; address++) {
-	// 	// The i2c_scanner uses the return value of
-	// 	// the Write.endTransmisstion to see if
-	// 	// a device did acknowledge to the address.
-	// 	Wire.beginTransmission(address);
-	// 	error = Wire.endTransmission();
-
-	// 	if(error == 0) {
-	// 		Serial.print("I2C device found at address 0x");
-	// 		if(address < 16)
-	// 			Serial.print("0");
-	// 		Serial.print(address, HEX);
-	// 		Serial.println("  !");
-
-	// 		nDevices++;
-	// 	}
-	// 	else if(error == 4) {
-	// 		Serial.print("Unknown error at address 0x");
-	// 		if(address < 16)
-	// 			Serial.print("0");
-	// 		Serial.println(address, HEX);
-	// 	}
+	// log_i("Initialising EEPROM...");
+	// eeprom.begin();
+	// ThermostatController::PersistentConfig config;
+	// eeprom.readBlock(0, (byte*)&config, sizeof(config));
+	// if(thermostat.loadConfig(config)) {
+	// 	log_i("Successfully loaded configuration from EEPROM.");
 	// }
-	// if(nDevices == 0)
-	// 	Serial.println("No I2C devices found\n");
-	// else
-	// 	Serial.println("done\n");
 
-	Serial.println("Initialising EEPROM...");
-	eeprom.begin();
-
-	ThermostatController::PersistentConfig config;
-	eeprom.readBlock(0, (byte*)&config, sizeof(config));
-	if(thermostat.loadConfig(config)) {
-		Serial.println("Successfully loaded configuration from EEPROM.");
+	log_i("Initialising Filesystem...");
+	if(!LittleFS.begin()) {
+		log_w("Filesystem is not formatted. Formatting...");
+		LittleFS.format();
 	}
 
-	// for(int i = 0; i < 512; i += 16) {
-	// 	byte zero[] = {
-	// 		0x54,
-	// 		0x54,
-	// 		0x54,
-	// 		0x54,
-	// 		0x54,
-	// 		0x54,
-	// 		0x54,
-	// 		0x54,
-	// 		0x54,
-	// 		0x54,
-	// 		0x54,
-	// 		0x54,
-	// 		0x54,
-	// 		0x54,
-	// 		0x54,
-	// 		0x54,
-	// 	};
-	// 	//byte s = eeprom.write(i, zero, 16);
-	// 	//eeprom.write(i, i);
-	// 	eeprom.writeBlock(i, zero, 16);
-	// }
+	if(!loadThermostatConfig()) {
+		//create default config
+		log_i("Writing default thermostat config...");
+		saveThermostatConfig();
+	}
 
-	// for(int i = 0; i < 512; i++) {
-	// 	// byte b = eeprom.read(i);
-	// 	byte b = eeprom.readByte(i);
-	// 	if(b < 0x10) {
-	// 		Serial.print('0');
-	// 	}
-	// 	Serial.print(b, HEX);
-	// 	Serial.print(' ');
-	// 	if(i % 16 == 15) {
-	// 		Serial.println();
-	// 	}
-	// }
-
+	log_i("Starting tasks...");
 	xTaskCreate(
 		taskReadTemperature,
 		"Read temperature",
 		1000,
 		nullptr,
-		1,
+		20,
+		nullptr
+	);
+
+	xTaskCreate(
+		taskLogTemperature,
+		"Log temperature",
+		5000,
+		nullptr,
+		4,
 		nullptr
 	);
 
 	xTaskCreate(
 		taskTickThermostatLogic,
 		"Tick thermostat logic",
-		1000,
+		5000,
 		nullptr,
-		1,
+		15,
 		nullptr
 	);
 
+	vTaskDelay(1000 / portTICK_PERIOD_MS);
+
 	log_i("Setting up WiFi...");
 	WiFi.setHostname(HOSTNAME);
-	// if(!wifi.isSetup()) {
-	// 	Serial.println("WiFi is not setup yet. Creating default AP...");
-	// 	if(!WiFi.softAP(SETUP_WIFI_SSID, SETUP_WIFI_PASS)) {
-	// 		log_e("Soft AP creation failed.");
-	// 		//while(1);
-	// 	}
-	// 	WiFi.softAPConfig(
-	// 		IPAddress(192, 168, 1, 1),
-	// 		IPAddress(192, 168, 1, 1),
-	// 		IPAddress(255, 255, 255, 0)
-	// 	);
-	// 	IPAddress myIP = WiFi.softAPIP();
-	// 	Serial.print("AP IP address: ");
-	// 	Serial.println(myIP);
-	// }
-	//WiFi.mode(WIFI_STA);
-	
-	WiFi.disconnect(true);
 
-	WiFi.begin("WIFI_SSID", "WIFI_PASSWORD");
-	while(WiFi.status() != WL_CONNECTED) {
-		delay(500);
-		Serial.print(".");
+	/*WiFi.onEvent([](WiFiEvent_t event, WiFiEventInfo_t info) {
+		log_i("WiFi event: %d, status: %d", event, WiFi.status());
+	});*/
+
+	WiFiConfig wifi;
+	if(loadWifiConfig(wifi)) {
+
+		lcd.clear();
+		lcd.home();
+		lcd.print("WiFi connecting ");
+		lcd.setCursor(0, 1);
+
+		if(!connectWiFi(wifi, true)){
+			log_e("Failed to connect to saved WiFi network.");
+			WiFi.disconnect(true);
+			lcd.clear();
+			lcd.home();
+			lcd.print("   Connection   ");
+			lcd.setCursor(0, 1);
+			lcd.print("   failed.      ");
+
+			vTaskDelay(1000 / portTICK_PERIOD_MS);
+			WiFiConfig* params = new WiFiConfig();
+			memcpy(params, &wifi, sizeof(wifi));
+			xTaskCreate(
+				taskReconnectWifi,
+				"Reconnect WiFi",
+				3000,
+				params,
+				5,
+				nullptr
+			);
+		}
+		else {
+			log_i("WiFi connected");
+			log_i("IP address: %s", WiFi.localIP().toString().c_str());
+			lcd.home();
+			lcd.print("   Connection   ");
+			lcd.setCursor(0, 1);
+			lcd.print("   successful.  ");
+		}
 	}
-	Serial.println("");
-	Serial.println("WiFi connected");
-	Serial.println("IP address: ");
-	Serial.println(WiFi.localIP());
+	else{
+
+		// Serial.println("WiFi is not setup yet. Creating default AP...");
+		// if(!WiFi.softAP(SETUP_WIFI_SSID, SETUP_WIFI_PASS)) {
+		// 	log_e("Soft AP creation failed.");
+		// 	//while(1);
+		// }
+		// WiFi.softAPConfig(
+		// 	IPAddress(192, 168, 1, 1),
+		// 	IPAddress(192, 168, 1, 1),
+		// 	IPAddress(255, 255, 255, 0)
+		// );
+		// IPAddress myIP = WiFi.softAPIP();
+		// Serial.print("AP IP address: ");
+		// Serial.println(myIP);
+		wifi.version = 1;
+		wifi.ip = 0;
+		strcpy(wifi.ssid, "<ssid>");
+		strcpy(wifi.password, "<password>");
+
+		File cfg = LittleFS.open(WIFI_CONFIG_FILE, FILE_WRITE, true);
+		if(cfg) {
+			cfg.write((byte*)&wifi, sizeof(wifi));
+			cfg.close();
+		}
+	}
 
 	server.addMiddleware(&cors);
 
-	server.onNotFound([](AsyncWebServerRequest *request) {
+	server.onNotFound([](AsyncWebServerRequest* request) {
 		request->send(404, "text/plain", "404 Not found");
 	});
 
-	setupWebServer();
+	//client app
+	server.on("/", HTTP_GET, [](AsyncWebServerRequest* request) {
+		if(!LittleFS.exists("/client/index.html.gz")) {
+			request->send(500, "text/plain", "Error - client code has not been uploaded. Please flash the filesystem image.");
+			return;
+		}
+		AsyncWebServerResponse* response = request->beginResponse(LittleFS, "/client/index.html.gz", "text/html");
+		response->addHeader("Content-Encoding", "gzip");
+		request->send(response);
+	});
+
+	setupApiEndpoints();
 
 	server.begin();
 
 	vTaskDelay(1000 / portTICK_PERIOD_MS);
-	
+
 	screenManager.push(new HomeScreen());
 
-	Serial.println("Initialisation complete.");
+	log_i("Initialisation complete.");
 }
 
-//extern const char* dayNames[];
-
 void loop() {
-
 	buttons.executeHandlers();
 	screenManager.update();
 	terminal.update();
@@ -259,8 +260,16 @@ void taskReadTemperature(void* pvParameters) {
 	while(true) {
 		temp.requestTemperatures();
 		float t = temp.getTempCByIndex(0);
-		//thermostat.sendTemperatureUpdate(t);
+		thermostat.sendTemperatureUpdate(t); //+ (float)random(-10, 10)
 		//Serial.println("Got temperature: " + String(t));
+		vTaskDelay(1000 / portTICK_PERIOD_MS);
+	}
+}
+
+void taskLogTemperature(void* pvParameters) {
+	while(true) {
+		if(Time::now().time > 1736115867000) 
+			logCurrentTemperature();
 		vTaskDelay(1000 / portTICK_PERIOD_MS);
 	}
 }
@@ -270,4 +279,26 @@ void taskTickThermostatLogic(void* pvParameters) {
 		thermostat.update();
 		vTaskDelay(1000 / portTICK_PERIOD_MS);
 	}
+}
+
+void taskReconnectWifi(void* pvParameters) {
+	WiFiConfig* wifi = (WiFiConfig*)pvParameters;
+	while(true) {
+		log_i("Reconnecting to WiFi...");
+		WiFi.disconnect(true);
+
+		if(connectWiFi(*wifi)) {
+			log_i("WiFi connected");
+			log_i("IP address: %s", WiFi.localIP().toString().c_str());
+
+			break;
+		}
+
+		log_e("Connection failed. Status: %d", WiFi.status());
+
+		vTaskDelay(2000 / portTICK_PERIOD_MS);
+	}
+	delete wifi;
+
+	vTaskDelete(NULL);
 }

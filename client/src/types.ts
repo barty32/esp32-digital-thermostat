@@ -15,3 +15,7 @@ export interface ITemperatureSlot {
 	temperature: number;
 }
 
+// export interface ITemperatureDataPoint [
+// 	number, number
+// ];
+

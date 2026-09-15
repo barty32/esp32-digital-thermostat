@@ -37,8 +37,8 @@ void SettingsScreen::onItemSelected(int cursor) {
 				{"Yes", true}
 			}, false), [](bool reset) {
 				if(reset) {
-					//write invalid version to saved data
-					eeprom.writeByte(0, 0xFF);
+					LittleFS.remove(THERMOSTAT_CONFIG_FILE);
+					LittleFS.remove(WIFI_CONFIG_FILE);
 					lcd.clear();
 					lcd.noCursor();
 					lcd.home();
