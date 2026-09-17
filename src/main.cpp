@@ -86,10 +86,10 @@ void setup() {
 	});
 
 	//run isr at 1000Hz
-	tim1 = timerBegin(0, 80, true);
-	timerAttachInterrupt(tim1, []() { buttons.readInputs_isr(); }, true);
-	timerAlarmWrite(tim1, 1000, true);
-	timerAlarmEnable(tim1);
+	tim1 = timerBegin(1000000);
+	timerAttachInterrupt(tim1, []() { buttons.readInputs_isr(); });
+	timerAlarm(tim1, 1000, true, 0);
+	timerStart(tim1);
 
 	log_i("Initialising LCD...");
 	screenManager.init();
