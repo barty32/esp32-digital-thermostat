@@ -3,13 +3,28 @@
 #include "ScreenManager.h"
 #include "ThermostatController.h"
 
+String dayToString(Day day) {
+	// clang-format off
+	switch(day.days) {
+		case Day::MONDAY:    return "Mon";
+		case Day::TUESDAY:   return "Tue";
+		case Day::WEDNESDAY: return "Wed";
+		case Day::THURSDAY:  return "Thu";
+		case Day::FRIDAY:    return "Fri";
+		case Day::SATURDAY:  return "Sat";
+		case Day::SUNDAY:    return "Sun";
+		default:             return "---";
+	}
+	// clang-format on
+}
+
 void HomeScreen::render() {
+	Time now = Time::now();
 	lcd.noCursor();
 	lcd.home();
-	//lcd.print(dayNames[rtc.getDayofWeek()]); //rtc.getWeekDay() - 1
-	lcd.print("Mon");
+	lcd.print(dayToString(now.getDayOfWeek()));
 	lcd.print(" ");
-	lcd.print(Time::now().toString(((millis() / 1000) % 2) ? ":" : " "));
+	lcd.print(now.toString(((Time::millis() / 1000) % 2) ? ":" : " "));
 	lcd.print(" ");
 	lcd.setCursor(10, 0);
 	// if(currentTemperature < TEMP(10)) {
@@ -51,9 +66,9 @@ void HomeScreen::render() {
 
 void HomeScreen::update() {
 	static uint32_t lastUpdate = 0;
-	if(millis() - lastUpdate > 1000) {
+	if(Time::millis() - lastUpdate > 500) {
 		this->render();
-		lastUpdate = millis();
+		lastUpdate = Time::millis();
 	}
 }
 

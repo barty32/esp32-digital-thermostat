@@ -10,6 +10,7 @@
 #include <LittleFS.h>
 #include <LiquidCrystal_I2C.h>
 #include <ESP32Time.h>
+#include <RTClib.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <ArduinoJson.h>
@@ -133,10 +134,11 @@ extern LiquidCrystal_I2C lcd;
 //extern I2C_eeprom eeprom;
 //extern extEEPROM eeprom;
 extern hw_timer_t* tim1;
+extern RTC_DS1307 ds1307;
 extern ESP32Time rtc;
 extern OneWire oneWire;
 extern DallasTemperature temp;
-extern AsyncWebServer server;
+extern Preferences nvs;
 extern ArduinoButtonReader<5> buttons;
 extern ScreenManager screenManager;
 

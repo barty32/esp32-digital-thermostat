@@ -8,6 +8,7 @@ LiquidCrystal_I2C lcd(LCD_I2C_ADDR, 16, 2);
 //extEEPROM eeprom(kbits_4, 1, 16, 0x50);
 hw_timer_t* tim1 = NULL;
 ESP32Time rtc;
+RTC_DS1307 ds1307;
 OneWire oneWire(TEMP_SENSOR_PIN);
 DallasTemperature temp(&oneWire);
 Preferences nvs;
@@ -60,16 +61,27 @@ void setup() {
 	temp.setWaitForConversion(false);
 
 	log_i("Initialising RTC...");
-	// rtc.setClockSource(STM32RTC::LSE_CLOCK);
-	// rtc.begin();
-	// if(!rtc.isConfigured()) {
-	// 	rtc.setDate(1, 1, 10);
-	// 	rtc.setTime(0, 0, 0);
-	// }
-	//TODO: sync time with NTP
-	//rtc.setTime(0, 12, 10, 17, 10, 2023);
-	configTime(3600, 0, "pool.ntp.org", "time.nist.gov");
-	Serial.println("Current time: " + rtc.getDateTime());
+	// setenv("TZ", "Europe/Berlin", 1);
+	setenv("TZ", "UTC-2", 1);
+	tzset();
+	if(ds1307.begin()) {
+		log_i("RTC initialized successfully");
+		if(!ds1307.isrunning()) {
+			log_i("RTC is not running. Setting time to 2000-01-01.");
+			ds1307.adjust(DateTime());
+		}
+		DateTime now = ds1307.now();
+		log_i("Synchronizing internal RTC with %s", now.timestamp().c_str());
+		rtc.setTime(now.unixtime());
+		// rtc.setTime(now.second(), now.minute(), now.hour(), now.day(), now.month(), now.year());
+		//TODO: sync time with NTP
+		//rtc.setTime(0, 12, 10, 17, 10, 2023);
+		// configTime(3600, 0, "pool.ntp.org", "time.nist.gov");
+		log_i("Current internal RTC time: %s", rtc.getDateTime().c_str());
+	}
+	else {
+		log_e("RTC initialization failed. Using internal RTC only.");
+	}
 
 	log_i("Initialising button handlers...");
 	buttons.setDetectLongPress(ScreenManager::BTN_RIGHT, true);

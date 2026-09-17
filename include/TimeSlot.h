@@ -5,7 +5,7 @@
 #include "Day.h"
 
 struct TimeSlot {
-	Time startTime = Time::NOT_SET;
+	Time startTime = Time::NOT_SET;//time from the beginning of the day
 	Time endTime = Time::NOT_SET;
 	Temperature* temperatureSlot = nullptr;
 	Day daysEnabled = Day::NONE;
@@ -20,14 +20,21 @@ struct TimeSlot {
 	// }
 
 	inline bool isSet() const {
-		return startTime != Time::NOT_SET && endTime != Time::NOT_SET && temperatureSlot != nullptr;
+		return startTime != Time::NOT_SET && endTime != Time::NOT_SET && temperatureSlot != nullptr && temperatureSlot->isSet();
 	}
 
 	inline bool isActive() const { return active; }
 
+	//time: absolute time since epoch
 	bool isWithin(Time time) const {
-		if(time == Time::NOT_SET || startTime == Time::NOT_SET || endTime == Time::NOT_SET) {
+		if(time == Time::NOT_SET || startTime == Time::NOT_SET || endTime == Time::NOT_SET || !this->isEnabledOn(time.getDayOfWeek())) {
 			return false;
+		}
+		//now this is in local time
+		time = time.getTimeSinceMidnight();
+		if(startTime > endTime) {
+			//slot wraps around midnight
+			return time >= startTime || time <= endTime;
 		}
 		return time >= startTime && time <= endTime;
 	}

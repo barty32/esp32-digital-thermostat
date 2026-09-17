@@ -204,12 +204,29 @@ void handleTerminalCommand(Terminal& terminal, const String &command, const Stri
 		// currentTemperature = temp;
 		// stream.println("Set current temperature to: " + String(temp / 10.0));
 	}
+	else if(command == "time") {
+		if(params.startsWith("set")) {
+			String timeStr = params.substring(3);
+			timeStr.trim();
+			int64_t epoch = timeStr.toDouble();
+			rtc.setTime(epoch);
+
+			// tm* timeinfo = localtime((time_t*)&epoch);
+			ds1307.adjust(DateTime(epoch));
+			// ds1307.adjust(DateTime(Time::now().toEpoch()));
+			stream.println("RTC time set to: " + String(ctime(&epoch)));
+		}
+		else {
+			stream.println("Usage: time set <epoch>");
+		}
+	}
 	else if(command == "help") {
 		stream.println("Available commands:");
 		stream.println("  clear - Clear the terminal screen");
 		stream.println("  ping - Pong!");
 		stream.println("  reboot - Reboot the device");
 		stream.println("  uptime - Show the device uptime");
+		stream.println("  time set - Set RTC time");
 		stream.println("  wifi - Show WiFi configuration");
 		stream.println("  temperature - Manage temperature slots");
 		stream.println("  slot - Manage time slots");
