@@ -123,8 +123,15 @@ void setup() {
 	if(!LittleFS.begin()) {
 		log_w("Filesystem is not formatted. Formatting...");
 		LittleFS.format();
+		if(!LittleFS.begin()) {
+			log_e("FATAL ERROR: Filesystem initialisation failed. System will not continue initializing...");
+			while(1);
+		}
 	}
 
+	// Load config
+	log_i("Loading system config...");
+	// nvs.begin("thermostat", false);
 	if(!loadThermostatConfig()) {
 		//create default config
 		log_i("Writing default thermostat config...");
@@ -132,37 +139,13 @@ void setup() {
 	}
 
 	log_i("Starting tasks...");
-	xTaskCreate(
-		taskReadTemperature,
-		"Read temperature",
-		1000,
-		nullptr,
-		20,
-		nullptr
-	);
+	startReadTemperatureTask();
 
-	xTaskCreate(
-		taskLogTemperature,
-		"Log temperature",
-		5000,
-		nullptr,
-		4,
-		nullptr
-	);
+	startLogTemperatureTask();
 
-	xTaskCreate(
-		taskTickThermostatLogic,
-		"Tick thermostat logic",
-		5000,
-		nullptr,
-		15,
-		nullptr
-	);
+	startTickThermostatLogicTask();
 
-	vTaskDelay(1000 / portTICK_PERIOD_MS);
-
-	log_i("Setting up WiFi...");
-	WiFi.setHostname(HOSTNAME);
+	delay(1000);
 
 	// WiFi setup
 	// startWifiTask();
@@ -190,49 +173,62 @@ void loop() {
 	delay(1);
 }
 
+BaseType_t startReadTemperatureTask() {
+	return xTaskCreate(
+		taskReadTemperature,
+		"Read temperature",
+		1000,
+		nullptr,
+		20,
+		nullptr
+	);
+}
+
 void taskReadTemperature(void* pvParameters) {
 	while(true) {
 		temp.requestTemperatures();
 		float t = temp.getTempCByIndex(0);
 		thermostat.sendTemperatureUpdate(t); //+ (float)random(-10, 10)
 		//Serial.println("Got temperature: " + String(t));
-		vTaskDelay(1000 / portTICK_PERIOD_MS);
+		delay(1000);
 	}
+}
+
+BaseType_t startLogTemperatureTask() {
+	return xTaskCreate(
+		taskLogTemperature,
+		"Log temperature",
+		5000,
+		nullptr,
+		4,
+		nullptr
+	);
 }
 
 void taskLogTemperature(void* pvParameters) {
 	while(true) {
 		if(Time::now().time > 1736115867000) 
 			logCurrentTemperature();
-		vTaskDelay(1000 / portTICK_PERIOD_MS);
+		delay(1000);
 	}
+}
+
+BaseType_t startTickThermostatLogicTask() {
+	return xTaskCreate(
+		taskTickThermostatLogic,
+		"Tick thermostat logic",
+		5000,
+		nullptr,
+		15,
+		nullptr
+	);
 }
 
 void taskTickThermostatLogic(void* pvParameters) {
 	while(true) {
 		thermostat.update();
-		vTaskDelay(1000 / portTICK_PERIOD_MS);
+		delay(1000);
 	}
 }
 
-void taskReconnectWifi(void* pvParameters) {
-	WiFiConfig* wifi = (WiFiConfig*)pvParameters;
-	while(true) {
-		log_i("Reconnecting to WiFi...");
-		WiFi.disconnect(true);
 
-		if(connectWiFi(*wifi)) {
-			log_i("WiFi connected");
-			log_i("IP address: %s", WiFi.localIP().toString().c_str());
-
-			break;
-		}
-
-		log_e("Connection failed. Status: %d", WiFi.status());
-
-		vTaskDelay(2000 / portTICK_PERIOD_MS);
-	}
-	delete wifi;
-
-	vTaskDelete(NULL);
-}
