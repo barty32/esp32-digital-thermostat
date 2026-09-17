@@ -41,5 +41,18 @@ class Day {
 		return days;
 	}
 
-	//String getString();
+	String toString() {
+		// clang-format off
+		switch(days) {
+			case Day::MONDAY:    return "Mon";
+			case Day::TUESDAY:   return "Tue";
+			case Day::WEDNESDAY: return "Wed";
+			case Day::THURSDAY:  return "Thu";
+			case Day::FRIDAY:    return "Fri";
+			case Day::SATURDAY:  return "Sat";
+			case Day::SUNDAY:    return "Sun";
+			default:             return "---";
+		}
+		// clang-format on
+	}
 };

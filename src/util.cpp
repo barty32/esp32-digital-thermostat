@@ -222,11 +222,8 @@ void handleTerminalCommand(Terminal& terminal, const String &command, const Stri
 			String timeStr = params.substring(3);
 			timeStr.trim();
 			int64_t epoch = timeStr.toDouble();
-			rtc.setTime(epoch);
-
-			// tm* timeinfo = localtime((time_t*)&epoch);
-			ds1307.adjust(DateTime(epoch));
-			// ds1307.adjust(DateTime(Time::now().toEpoch()));
+			Time time = Time::fromEpoch(epoch);
+			Time::set(time);
 			stream.println("RTC time set to: " + String(ctime(&epoch)));
 		}
 		else {

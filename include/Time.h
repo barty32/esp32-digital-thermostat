@@ -6,7 +6,7 @@
 class Time {
 	public:
 
-	using time_t = int64_t;//this is in milliseconds
+	using time_t = int64_t;//this is in milliseconds since epoch, UTC
 
 	//contants
 	static const time_t NOT_SET = -1;
@@ -22,15 +22,27 @@ class Time {
 	  time(time) {
 	}
 
-	static Time fromSeconds(time_t seconds) {
+	static Time fromEpoch(time_t seconds) {
 		return Time(seconds * SECOND);
 	}
 
+	time_t toEpoch() const {
+		return time / SECOND;
+	}
+
 	static Time now() {
-		//TODO: get time from RTC
 		// return Time::fromSeconds(rtc.getEpoch());
-		return Time::fromSeconds(::time(nullptr));
+		// This gets the time from ESP internal RTC, which is synced with external RTC at startup
+		return Time::fromEpoch(::time(nullptr));
 		//return Time::millis();
+	}
+
+	static void set(Time time) {
+		time_t epoch = time.toEpoch();
+		// Set both internal and external RTC
+		rtc.setTime(epoch);
+		ds1307.adjust(DateTime(epoch));
+		log_i("RTC time set to: %s", ctime(&epoch));
 	}
 
 	// Returns the number of milliseconds since the program started
@@ -63,26 +75,35 @@ class Time {
 	// int getHours() const { return time % DAY / HOUR; }
 
 	int getSeconds() const {
-		time_t epoch = this->toSeconds();
+		time_t epoch = this->toEpoch();
 		tm* timeinfo = localtime((time_t*)&epoch);
 		return timeinfo->tm_sec;
 	}
 
 	int getMinutes() const {
-		time_t epoch = this->toSeconds();
+		time_t epoch = this->toEpoch();
 		tm* timeinfo = localtime((time_t*)&epoch);
 		return timeinfo->tm_min;
 	}
 
 	int getHours() const {
-		time_t epoch = this->toSeconds();
+		time_t epoch = this->toEpoch();
 		tm* timeinfo = localtime((time_t*)&epoch);
 		return timeinfo->tm_hour;
 	}
 
+	Time getTimeSinceMidnight() const {
+		// 	//return rtc.getEpoch() % (60 * 60 * 24);
+		// 	return rtc.getHour() * 3600 + rtc.getMinute() * 60 + rtc.getSecond();
+		// return time % DAY;
+		time_t epoch = this->toEpoch();
+		tm* timeinfo = localtime((time_t*)&epoch);
+		return Time((timeinfo->tm_hour * 3600 + timeinfo->tm_min * 60 + timeinfo->tm_sec) * SECOND);
+	}
+
 	// int getDay();
 	Day getDayOfWeek() const {
-		time_t epoch = this->toSeconds();
+		time_t epoch = this->toEpoch();
 		tm* timeinfo = localtime((time_t*)&epoch);
 		switch(timeinfo->tm_wday) {
 			case 0: return Day::SUNDAY;
@@ -95,6 +116,13 @@ class Time {
 			default: return Day::NONE;
 		}
 	}
+
+	tm& getTimeStruct() const {
+		time_t epoch = this->toEpoch();
+		tm* timeinfo = localtime((time_t*)&epoch);
+		return *timeinfo;
+	}
+
 	// int getDayofYear();
 	// int getMonth();
 	// int getYear();
@@ -125,23 +153,6 @@ class Time {
 			result += minutes;
 		}
 		return result;
-	}
-
-	time_t toEpoch() const {
-		return time;
-	}
-
-	time_t toSeconds() const {
-		return time / SECOND;
-	}
-
-	Time getTimeSinceMidnight() const {
-		// 	//return rtc.getEpoch() % (60 * 60 * 24);
-		// 	return rtc.getHour() * 3600 + rtc.getMinute() * 60 + rtc.getSecond();
-		// return time % DAY;
-		time_t epoch = this->toSeconds();
-		tm* timeinfo = localtime((time_t*)&epoch);
-		return Time((timeinfo->tm_hour * 3600 + timeinfo->tm_min * 60 + timeinfo->tm_sec) * SECOND);
 	}
 
 	Time operator+(const Time& right) const { return Time(time + right.time); }

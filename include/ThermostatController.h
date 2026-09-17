@@ -277,15 +277,15 @@ class ThermostatController {
 		mode = config.mode;
 		minThreshold = config.minThreshold;
 		maxThreshold = config.maxThreshold;
-		maximumOnTime = Time::fromSeconds(config.maximumOnTime);
-		minimumOnTime = Time::fromSeconds(config.minimumOnTime);
-		minimumOffTime = Time::fromSeconds(config.minimumOffTime);
+		maximumOnTime = Time::fromEpoch(config.maximumOnTime);
+		minimumOnTime = Time::fromEpoch(config.minimumOnTime);
+		minimumOffTime = Time::fromEpoch(config.minimumOffTime);
 		for(int i = 0; i < TEMP_SLOT_COUNT; i++) {
 			temperatureSlots[i] = config.temperatureSlots[i];
 		}
 		for(int i = 0; i < TIME_SLOT_COUNT; i++) {
-			timeSlots[i].startTime = Time::fromSeconds(config.timeSlots[i].startTime);
-			timeSlots[i].endTime = Time::fromSeconds(config.timeSlots[i].endTime);
+			timeSlots[i].startTime = Time::fromEpoch(config.timeSlots[i].startTime);
+			timeSlots[i].endTime = Time::fromEpoch(config.timeSlots[i].endTime);
 			timeSlots[i].daysEnabled = static_cast<Day::Days>(config.timeSlots[i].daysEnabled);
 			timeSlots[i].temperatureSlot = config.timeSlots[i].temperatureSlot == 0xFF ? nullptr : &temperatureSlots[config.timeSlots[i].temperatureSlot];
 			timeSlots[i].active = config.timeSlots[i].active;
@@ -298,15 +298,15 @@ class ThermostatController {
 		config.mode = mode;
 		config.minThreshold = minThreshold;
 		config.maxThreshold = maxThreshold;
-		config.maximumOnTime = maximumOnTime.toSeconds();
-		config.minimumOnTime = minimumOnTime.toSeconds();
-		config.minimumOffTime = minimumOffTime.toSeconds();
+		config.maximumOnTime = maximumOnTime.toEpoch();
+		config.minimumOnTime = minimumOnTime.toEpoch();
+		config.minimumOffTime = minimumOffTime.toEpoch();
 		for(int i = 0; i < TEMP_SLOT_COUNT; i++) {
 			config.temperatureSlots[i] = temperatureSlots[i];
 		}
 		for(int i = 0; i < TIME_SLOT_COUNT; i++) {
-			config.timeSlots[i].startTime = timeSlots[i].startTime.toSeconds();
-			config.timeSlots[i].endTime = timeSlots[i].endTime.toSeconds();
+			config.timeSlots[i].startTime = timeSlots[i].startTime.toEpoch();
+			config.timeSlots[i].endTime = timeSlots[i].endTime.toEpoch();
 			config.timeSlots[i].daysEnabled = timeSlots[i].daysEnabled.toByte();
 			config.timeSlots[i].temperatureSlot = timeSlots[i].temperatureSlot ? timeSlots[i].temperatureSlot - temperatureSlots : 0xFF;
 			config.timeSlots[i].active = timeSlots[i].active;

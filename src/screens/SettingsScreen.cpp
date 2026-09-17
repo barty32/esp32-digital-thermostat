@@ -1,15 +1,13 @@
 #include "screens/SettingsScreen.h"
 #include "screens/SelectScreen.h"
+#include "screens/DateAndTimeMenuScreen.h"
 #include "ScreenManager.h"
 
 void SettingsScreen::onItemSelected(int cursor) {
 	Screen* screen;
 	switch(cursor) {
 		case OPTION_DATETIME:
-			{
-				// Screen* screen = new ModeSetupScreen(this);
-				// screen->show();
-			}
+			manager->push(new DateAndTimeMenuScreen());
 			break;
 
 		case OPTION_NETWORK:
