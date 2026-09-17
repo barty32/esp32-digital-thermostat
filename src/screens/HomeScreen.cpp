@@ -35,18 +35,24 @@ void HomeScreen::render() {
 	lcd.print((char)223); //degree
 	lcd.print("C ");
 	lcd.setCursor(0, 1);
-	if(thermostat.getMode() == ThermostatController::MODE_HIGH) {
-		lcd.print("High      ");
-	}
-	else if(thermostat.getMode() == ThermostatController::MODE_LOW) {
-		lcd.print("Low       ");
-	}
-	else if(thermostat.getMode() == ThermostatController::MODE_PROGRAM) {
-		lcd.print("P-19:00   ");
-	}
-	else if(thermostat.getMode() == ThermostatController::MODE_OFF) {
+	if(thermostat.getMode() == ThermostatController::MODE_OFF) {
 		lcd.print("Off       ");
 	}
+	else {
+		lcd.print("Normal    ");
+	}
+	// if(thermostat.getMode() == ThermostatController::MODE_HIGH) {
+	// 	lcd.print("High      ");
+	// }
+	// else if(thermostat.getMode() == ThermostatController::MODE_LOW) {
+	// 	lcd.print("Low       ");
+	// }
+	// else if(thermostat.getMode() == ThermostatController::MODE_PROGRAM) {
+	// 	lcd.print("P-19:00   ");
+	// }
+	// else if(thermostat.getMode() == ThermostatController::MODE_OFF) {
+	// 	lcd.print("Off       ");
+	// }
 	lcd.setCursor(10, 1);
 	// int32_t* temp = getCurrentModeTemp();
 	// if(temp) {
@@ -59,9 +65,9 @@ void HomeScreen::render() {
 	// 	lcd.print("--.-");
 	// }
 	lcd.print(thermostat.getMinThreshold().toString(1));
-	lcd.print((char)223); //degree
+	lcd.print(LCD_SYMBOL_DEGREE);
 	lcd.print("C ");
-	lcd.print("Home screen");
+	// lcd.print("Home screen");
 }
 
 void HomeScreen::update() {

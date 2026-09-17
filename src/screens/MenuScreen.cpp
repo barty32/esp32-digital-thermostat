@@ -15,9 +15,10 @@ void MenuScreen::onItemSelected(int cursor) {
 		case MENU_MODE:
 			manager->modal<ThermostatController::Mode>(new SelectScreen<ThermostatController::Mode>("Set mode:", {
 				{"Off", ThermostatController::MODE_OFF},
-				{"Program", ThermostatController::MODE_PROGRAM},
-				{"High", ThermostatController::MODE_HIGH},
-				{"Low", ThermostatController::MODE_LOW}
+				// {"Program", ThermostatController::MODE_PROGRAM},
+				// {"High", ThermostatController::MODE_HIGH},
+				// {"Low", ThermostatController::MODE_LOW}
+				{"Low", ThermostatController::MODE_NORMAL}
 			}, thermostat.getMode()), [](ThermostatController::Mode mode) {
 				thermostat.setMode(mode);
 			});

@@ -7,7 +7,7 @@ bool loadThermostatConfig() {
 	if(!LittleFS.exists(THERMOSTAT_CONFIG_FILE)) {
 		return false;
 	}
-	ThermostatController::PersistentConfig config;
+	ThermostatController::Config config;
 	File cfg = LittleFS.open(THERMOSTAT_CONFIG_FILE, FILE_READ);
 	if(!cfg) {
 		log_e("Failed to open thermostat config file.");
@@ -23,7 +23,7 @@ bool loadThermostatConfig() {
 }
 
 bool saveThermostatConfig() {
-	ThermostatController::PersistentConfig config;
+	ThermostatController::Config config;
 	File cfg = LittleFS.open(THERMOSTAT_CONFIG_FILE, FILE_WRITE, true);
 	if(!cfg) {
 		log_e("Failed to open thermostat config file.");
@@ -139,6 +139,19 @@ void handleTerminalCommand(Terminal& terminal, const String &command, const Stri
 		Time time = Time::millis();
 		stream.printf("Uptime: %02d:%02d:%02d\r\n", time.getHours(), time.getMinutes(), time.getSeconds());
 	}
+	else if(command == "log") {
+		if(params == "start") {
+			esp_log_level_set("*", ESP_LOG_INFO);
+			stream.println("Log level set to INFO");
+		}
+		else if(params == "stop") {
+			esp_log_level_set("*", ESP_LOG_NONE);
+			stream.println("Log level set to NONE");
+		}
+		else {
+			stream.println("Usage: log [start|stop]");
+		}
+	}
 	else if(command == "wifi") {
 		WiFiConfig wifi;
 		// if(loadWifiConfig(wifi)) {
@@ -226,6 +239,7 @@ void handleTerminalCommand(Terminal& terminal, const String &command, const Stri
 		stream.println("  ping - Pong!");
 		stream.println("  reboot - Reboot the device");
 		stream.println("  uptime - Show the device uptime");
+		stream.println("  log - Start showing device log");
 		stream.println("  time set - Set RTC time");
 		stream.println("  wifi - Show WiFi configuration");
 		stream.println("  temperature - Manage temperature slots");

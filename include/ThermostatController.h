@@ -10,8 +10,6 @@
 things to save:
 
 saved version
-wifi name and password
-mqtt config
 
 
 */
@@ -22,22 +20,20 @@ class ThermostatController {
 
 	enum Mode : byte {
 		MODE_OFF,
-		MODE_LOW,
-		MODE_HIGH,
-		MODE_PROGRAM
+		MODE_NORMAL
 	};
 
 	static const uint8_t TIME_SLOT_COUNT = 16;
 	static const uint8_t TEMP_SLOT_COUNT = 16;
 
-	struct PersistentConfig {
+	struct Config {
 		struct SavedSlot {
 			int32_t startTime;//seconds 0-86400
 			int32_t endTime;//seconds 0-86400
-			uint8_t daysEnabled;//bitmask
+			uint8_t daysEnabled;//bitmask, 0x00 = one time, 0x7F = every day
 			uint8_t temperatureSlot; //slot index 0-TEMP_SLOT_COUNT
 			bool active : 1;
-		};
+		} __attribute__((packed));
 		byte version = 0;//format version
 		Mode mode;
 		Temperature minThreshold;
@@ -47,22 +43,22 @@ class ThermostatController {
 		int32_t minimumOffTime;
 		Temperature temperatureSlots[TEMP_SLOT_COUNT];
 		SavedSlot timeSlots[TIME_SLOT_COUNT];
-	};
+	} __attribute__((packed));
 
   private:
 
 	//setpoint variables
-	Mode mode = MODE_LOW;
+	Mode mode = MODE_NORMAL;
 
-	Temperature minThreshold = 17.0;
-	Temperature maxThreshold = 25.0;
+	Temperature minThreshold = 17.0;//if the system is below this temperature, heating will be turned on
+	Temperature maxThreshold = 25.0;//if the system is above this temperature, heating will be turned off
 
 	Temperature temperatureSlots[TEMP_SLOT_COUNT];
 	TimeSlot timeSlots[TIME_SLOT_COUNT];
 
 	Time maximumOnTime = Time::HOUR * 2;
 	Time minimumOnTime = Time::MINUTE * 10;
-	Time minimumOffTime = Time::MINUTE * 10;
+	Time minimumOffTime = Time::MINUTE * 30;
 
 	//for hysteresis, times 100
 	//uint32_t hysteresis = 30;
@@ -120,13 +116,13 @@ class ThermostatController {
 	}
 
 	void update() {
-		static float p = 0.0;
-		p += 0.1;
-		if(p > 1.0) p = 0.0;
-		this->setOutputPower(p);
-		//log_i("Setting dac to %d", (millis() % 1000) / 1000.0 * 255);
-		//dacWrite(ANALOG_CTRL_PIN, (millis() % 1000) / 1000.0 * 255);
-		return;
+		// static float p = 0.0;
+		// p += 0.1;
+		// if(p > 1.0) p = 0.0;
+		// this->setOutputPower(p);
+		// //log_i("Setting dac to %d", (millis() % 1000) / 1000.0 * 255);
+		// //dacWrite(ANALOG_CTRL_PIN, (millis() % 1000) / 1000.0 * 255);
+		// return;
 		//priorities:
 		//
 		// 1. max on time
@@ -143,44 +139,59 @@ class ThermostatController {
 
 		Time current = Time::millis();
 		if(boilerOn && (current - lastBoilerOn > maximumOnTime)) {
-			Serial.println("Boiler on-time exceeded");
+			log_i("Boiler on-time exceeded");
 			this->setOutputPower(0.0f);
+			return;
 		}
 
 		if(!boilerOn && (current - lastBoilerOff < minimumOffTime)) {
 			this->setOutputPower(0.0f);
+			return;
 		}
 
-		if(mode == MODE_LOW) {
-			Serial.println("Regulating to low temperature");
-			this->regulate(minThreshold);
+		if(currentTemperature > maxThreshold) {
+			log_i("Max temperature exceeded");
+			this->setOutputPower(0.0f);
+			return;
 		}
-		else if(mode == MODE_PROGRAM) {
-			Time time = Time::now();
-			TimeSlot* slot = this->getNearestActiveSlot(time);
-			if(!slot) {
-				this->regulate(minThreshold);
-				return;
-			}
+
+		Temperature targetTemperature = this->calculateRegulationTemperature();
+		this->regulate(targetTemperature);
+
+		// if(currentTemperature < minThreshold) {
+		// 	Serial.println("Min temperature not met");
+		// 	this->regulate(minThreshold);
+		// }
+
+		// if(mode == MODE_LOW) {
+		// 	Serial.println("Regulating to low temperature");
+		// 	this->regulate(minThreshold);
+		// }
+		// else if(mode == MODE_PROGRAM) {
+			// Time time = Time::now();
+			// TimeSlot* slot = this->getNearestActiveSlot(time);
+			// if(!slot) {
+			// 	this->regulate(minThreshold);
+			// 	return;
+			// }
 			
-			Time prediction = this->calculateTimePrediction(time, *slot->temperatureSlot);
-			//limit to 1 hour
-			if(prediction > Time::HOUR) prediction = Time::HOUR;
+			// Time prediction = this->calculateTimePrediction(time, *slot->temperatureSlot);
+			// //limit to 1 hour
+			// if(prediction > Time::HOUR) prediction = Time::HOUR;
 
-			if(slot->isWithin(time + prediction)) {
-				Serial.println("Regulating to program");
-				this->regulate(*slot->temperatureSlot);
-			}
-			else {
-				Serial.println("Regulating to low outside program");
-				this->regulate(minThreshold);
-			}
-		}
+			// if(slot->isWithin(time + prediction)) {
+			// 	Serial.println("Regulating to program");
+			// 	this->regulate(*slot->temperatureSlot);
+			// }
+			// else {
+			// 	Serial.println("Regulating to low outside program");
+			// 	this->regulate(minThreshold);
+			// }
+		// }
 	}
 
 	void regulate(Temperature temperature) {
 		Temperature error = temperature - currentTemperature;
-
 		this->setOutputPower(error.temperature / 3.0);
 	}
 
@@ -190,7 +201,7 @@ class ThermostatController {
 		value = max(0.0f, min(1.0f, value));
 		//value = random(0, 100) / 100.0;
 		dacWrite(ANALOG_CTRL_PIN, value * 255);
-		Serial.println("Setting boiler power: " + String(value * 100) + "%");
+		log_i("Setting boiler power: %.1f%%", value * 100);
 
 		if(boilerOn && value < 0.1) {
 			boilerOn = false;
@@ -203,35 +214,62 @@ class ThermostatController {
 	}
 
 	//time: absolute time
-	TimeSlot* getNearestActiveSlot(Time time) {
-		TimeSlot* nearestToday = nullptr;
-		TimeSlot* nearestTomorrow = nullptr;
-		time = time.getTimeOfDay();
+	// TimeSlot* getNearestActiveSlot(Time time) {
+	// 	TimeSlot* nearestToday = nullptr;
+	// 	TimeSlot* nearestTomorrow = nullptr;
+	// 	time = time.getTimeOfDay();
+	// 	for(TimeSlot &slot : timeSlots) {
+	// 		if(!slot.isSet() || !slot.isActive()) continue;
+	// 		if(slot.isWithin(time)) return &slot;
+
+	// 		if(slot.isEnabledOn(Time::dayOfWeek()) &&
+	// 		   (slot.startTime > time) &&
+	// 		   (!nearestToday || slot.startTime - time < nearestToday->startTime - time)) {
+	// 			nearestToday = &slot;
+	// 		}
+	// 		if(slot.isEnabledOn(++Time::dayOfWeek()) &&
+	// 		   (!nearestTomorrow || slot.startTime - time < nearestTomorrow->startTime - time)) {
+	// 			nearestTomorrow = &slot;
+	// 		}
+	// 	}
+	// 	return nearestToday ? nearestToday : nearestTomorrow;
+	// }
+
+	Temperature calculateRegulationTemperature() {
+
+		Time time = Time::now();
+		std::list<TimeSlot*> slotCandidates;
 		for(TimeSlot &slot : timeSlots) {
 			if(!slot.isSet() || !slot.isActive()) continue;
-			if(slot.isWithin(time)) return &slot;
-
-			if(slot.isEnabledOn(Time::dayOfWeek()) &&
-			   (slot.startTime > time) &&
-			   (!nearestToday || slot.startTime - time < nearestToday->startTime - time)) {
-				nearestToday = &slot;
-			}
-			if(slot.isEnabledOn(++Time::dayOfWeek()) &&
-			   (!nearestTomorrow || slot.startTime - time < nearestTomorrow->startTime - time)) {
-				nearestTomorrow = &slot;
+			Time prediction = this->calculateTimePrediction(*slot.temperatureSlot);
+			//limit to 1 hour
+			if(prediction > Time::HOUR) prediction = Time::HOUR;
+			if(slot.isWithin(time) || slot.isWithin(time + prediction)) {
+				slotCandidates.push_back(&slot);
 			}
 		}
-		return nearestToday ? nearestToday : nearestTomorrow;
+		//select the highest temperature from the candidates
+		Temperature max = minThreshold;
+		for(TimeSlot* slot : slotCandidates) {
+			if(*slot->temperatureSlot > max) {
+				max = *slot->temperatureSlot;
+			}
+		}
+		return max;
 	}
 
-	Time calculateTimePrediction(Time time, Temperature targetTemperature) {
+	//calculates how much time is needed to reach the target temperature
+	Time calculateTimePrediction(Temperature targetTemperature) {
+		if(currentTemperature >= targetTemperature) {
+			return Time::ZERO;
+		}
 		//Time preheat = heatResponse - (highTemperature - currentTemperature) / 10.0 / lastRiseRate;
 		//limit to 1 hour
 		//if(preheat > 3600) preheat = 3600;
 		return Time::MINUTE * 30;
 	}
 
-	bool loadConfig(const PersistentConfig &config) {
+	bool loadConfig(const Config &config) {
 		if(config.version != 1) {
 			log_e("Invalid saved config version.");
 			return false;
@@ -255,7 +293,7 @@ class ThermostatController {
 		return true;
 	}
 
-	void storeConfig(PersistentConfig &config) {
+	void storeConfig(Config &config) {
 		config.version = 1;
 		config.mode = mode;
 		config.minThreshold = minThreshold;
