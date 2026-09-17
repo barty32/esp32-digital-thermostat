@@ -13,13 +13,17 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <ArduinoJson.h>
-#include <AsyncJson.h>
-#include <AsyncTCP.h>
-#include <ESPAsyncWebServer.h>
+#include <Preferences.h>
+// #include <AsyncJson.h>
+// #include <AsyncTCP.h>
+// #include <ESPAsyncWebServer.h>
 
 //local
 #include <ButtonLib.h>
 #include <Terminal.h>
+#include <ExpressESP.h>
+
+#include "WifiConfig.h"
 
 #define LCD_SYMBOL_DEGREE (char)223
 
@@ -36,15 +40,6 @@ enum Status {
 	STATUS_NOT_SETUP,
 	STATUS_OFFLINE,
 	STATUS_READY,
-};
-
-struct WiFiConfig {
-	byte version = 0;
-	char ssid[33];
-	char password[65];
-	uint32_t ip;
-	uint32_t gateway;
-	uint32_t subnet;
 };
 
 struct Temperature {
@@ -111,14 +106,25 @@ class ArduinoButtonReader : public ButtonReader<num_inputs> {
 void taskReadTemperature(void* pvParameters);
 void taskLogTemperature(void* pvParameters);
 void taskTickThermostatLogic(void* pvParameters);
-void taskReconnectWifi(void* pvParameters);
+void taskWifi(void* pvParameters);
+void taskHTTP(void* pvParameters);
+
+BaseType_t startReadTemperatureTask();
+BaseType_t startLogTemperatureTask();
+BaseType_t startTickThermostatLogicTask();
+BaseType_t startWifiTask();
+BaseType_t startHTTPTask();
 
 //utils
 bool loadThermostatConfig();
 bool saveThermostatConfig();
-bool loadWifiConfig(WiFiConfig &config);
-bool connectWiFi(WiFiConfig &wifi, bool reportToLcd = false);
+// bool loadWifiConfig(WiFiConfig &config);
+// bool connectWiFi(WiFiConfig &wifi, bool reportToLcd = false);
 void setupApiEndpoints();
+bool connectWiFi(const WiFiConfig &wifi);
+bool createSetupAP();
+bool stopAP();
+
 void logCurrentTemperature();
 void handleTerminalCommand(Terminal& terminal, const String &command, const String &params);
 

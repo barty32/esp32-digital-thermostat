@@ -10,8 +10,7 @@ hw_timer_t* tim1 = NULL;
 ESP32Time rtc;
 OneWire oneWire(TEMP_SENSOR_PIN);
 DallasTemperature temp(&oneWire);
-AsyncWebServer server(SERVER_PORT);
-CorsMiddleware cors;
+Preferences nvs;
 
 //these have to be in the same order as ScreenManager::Button
 static const uint8_t inputs[] = {BTN_UP_PIN, BTN_DOWN_PIN, BTN_LEFT_PIN, BTN_RIGHT_PIN, BTN_MODE_PIN};
@@ -22,6 +21,8 @@ ScreenManager screenManager;
 ThermostatController thermostat;
 
 void setup() {
+
+	esp_log_level_set("express", ESP_LOG_INFO);
 
 	Serial.begin(SERIAL_BAUD);
 	Serial.println("============================");
@@ -151,101 +152,22 @@ void setup() {
 	log_i("Setting up WiFi...");
 	WiFi.setHostname(HOSTNAME);
 
-	/*WiFi.onEvent([](WiFiEvent_t event, WiFiEventInfo_t info) {
-		log_i("WiFi event: %d, status: %d", event, WiFi.status());
-	});*/
+	// WiFi setup
+	// startWifiTask();
 
-	WiFiConfig wifi;
-	if(loadWifiConfig(wifi)) {
+	// HTTP server setup
+	// startHTTPTask();
 
-		lcd.clear();
-		lcd.home();
-		lcd.print("WiFi connecting ");
-		lcd.setCursor(0, 1);
+	//wait until WiFi is configured
+	// xSemaphoreTake(wifiSemaphore, 5000 / portTICK_PERIOD_MS);
 
-		if(!connectWiFi(wifi, true)){
-			log_e("Failed to connect to saved WiFi network.");
-			WiFi.disconnect(true);
-			lcd.clear();
-			lcd.home();
-			lcd.print("   Connection   ");
-			lcd.setCursor(0, 1);
-			lcd.print("   failed.      ");
-
-			vTaskDelay(1000 / portTICK_PERIOD_MS);
-			WiFiConfig* params = new WiFiConfig();
-			memcpy(params, &wifi, sizeof(wifi));
-			xTaskCreate(
-				taskReconnectWifi,
-				"Reconnect WiFi",
-				3000,
-				params,
-				5,
-				nullptr
-			);
-		}
-		else {
-			log_i("WiFi connected");
-			log_i("IP address: %s", WiFi.localIP().toString().c_str());
-			lcd.home();
-			lcd.print("   Connection   ");
-			lcd.setCursor(0, 1);
-			lcd.print("   successful.  ");
-		}
-	}
-	else{
-
-		// Serial.println("WiFi is not setup yet. Creating default AP...");
-		// if(!WiFi.softAP(SETUP_WIFI_SSID, SETUP_WIFI_PASS)) {
-		// 	log_e("Soft AP creation failed.");
-		// 	//while(1);
-		// }
-		// WiFi.softAPConfig(
-		// 	IPAddress(192, 168, 1, 1),
-		// 	IPAddress(192, 168, 1, 1),
-		// 	IPAddress(255, 255, 255, 0)
-		// );
-		// IPAddress myIP = WiFi.softAPIP();
-		// Serial.print("AP IP address: ");
-		// Serial.println(myIP);
-		wifi.version = 1;
-		wifi.ip = 0;
-		strcpy(wifi.ssid, "<ssid>");
-		strcpy(wifi.password, "<password>");
-
-		File cfg = LittleFS.open(WIFI_CONFIG_FILE, FILE_WRITE, true);
-		if(cfg) {
-			cfg.write((byte*)&wifi, sizeof(wifi));
-			cfg.close();
-		}
-	}
-
-	server.addMiddleware(&cors);
-
-	server.onNotFound([](AsyncWebServerRequest* request) {
-		request->send(404, "text/plain", "404 Not found");
-	});
-
-	//client app
-	server.on("/", HTTP_GET, [](AsyncWebServerRequest* request) {
-		if(!LittleFS.exists("/client/index.html.gz")) {
-			request->send(500, "text/plain", "Error - client code has not been uploaded. Please flash the filesystem image.");
-			return;
-		}
-		AsyncWebServerResponse* response = request->beginResponse(LittleFS, "/client/index.html.gz", "text/html");
-		response->addHeader("Content-Encoding", "gzip");
-		request->send(response);
-	});
-
-	setupApiEndpoints();
-
-	server.begin();
-
-	vTaskDelay(1000 / portTICK_PERIOD_MS);
+	delay(500);
 
 	screenManager.push(new HomeScreen());
 
 	log_i("Initialisation complete.");
+
+	delay(1000);
 }
 
 void loop() {
